@@ -17,7 +17,10 @@ export interface Service {
   documents: string[];
   /** Same list in Malayalam, spoken as-is, so the app never has to translate documents. */
   documents_ml: string[];
+  /** Government fee: not confirmed, never quoted ("VERIFY"). */
   fee: string;
+  /** VayoSeva's own service fee in rupees, charged via Razorpay before sending. */
+  service_fee_inr: number;
   notes: string;
   source: string;
   last_verified: string;
@@ -66,6 +69,9 @@ export function validateServices(raw: unknown): Service[] {
       throw new Error(`${where}: "accepted_documents" must be an array of non-empty strings (empty if not published)`);
     }
     if (typeof e.verified !== "boolean") throw new Error(`${where}: "verified" must be true or false`);
+    if (!Number.isInteger(e.service_fee_inr) || (e.service_fee_inr as number) < 1) {
+      throw new Error(`${where}: "service_fee_inr" must be a whole number of rupees, at least 1`);
+    }
     if (seen.has(e.id as string)) throw new Error(`${where}: duplicate id "${e.id}"`);
     seen.add(e.id as string);
   });

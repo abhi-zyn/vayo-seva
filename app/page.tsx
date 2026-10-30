@@ -17,6 +17,7 @@ import { Thinking } from "@/components/states/Thinking";
 import { askQuestion, OfflineError, type AskResponse } from "@/lib/ask-client";
 import { ML, recognitionErrorMl } from "@/lib/messages";
 import { DEFAULT_SPEED } from "@/lib/speed";
+import { authEnabled } from "@/lib/supabase/config";
 import { CHIPS, greetingKey, STRINGS } from "@/lib/ui-strings";
 import { useLang } from "@/lib/use-lang";
 import { useMicLevel } from "@/lib/use-mic-level";
@@ -299,6 +300,17 @@ export default function Home() {
               </span>
               <Icon name="chevron" size={40} className={styles.chevron} />
             </Link>
+
+            {authEnabled && (
+              <Link href="/my-applications" className={`${styles.row} vs-btn`}>
+                <Icon name="node-tick" size={56} />
+                <span className={styles.rowText}>
+                  {lang === "ml" ? "എന്റെ അപേക്ഷകൾ" : "My applications"}
+                  <span className={styles.rowAlt}>{lang === "ml" ? "My applications" : "എന്റെ അപേക്ഷകൾ"}</span>
+                </span>
+                <Icon name="chevron" size={40} className={styles.chevron} />
+              </Link>
+            )}
 
             <div className={styles.typeBlock}>
               {hydrated && !typing && (

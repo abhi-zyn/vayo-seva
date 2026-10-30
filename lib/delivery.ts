@@ -17,8 +17,7 @@ export interface SubmittedDoc {
   pdf_base64: string | null;
 }
 
-export async function deliverApplication(app: Application, docs: SubmittedDoc[] = []): Promise<DeliveryResult> {
-  const ref = makeRef();
+export async function deliverApplication(app: Application, docs: SubmittedDoc[] = [], ref = makeRef()): Promise<DeliveryResult> {
   const mode = process.env.DELIVERY_MODE || "dummy";
   if (mode === "resend") {
     await sendWithResend(app, ref, docs);
@@ -35,7 +34,7 @@ export async function deliverApplication(app: Application, docs: SubmittedDoc[] 
 }
 
 /** Short reference the family can read out to the operator, e.g. "AKS-261031-4827". */
-function makeRef(): string {
+export function makeRef(): string {
   const d = new Date();
   const ymd = `${String(d.getFullYear()).slice(2)}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
   return `AKS-${ymd}-${Math.floor(1000 + Math.random() * 9000)}`;

@@ -24,6 +24,9 @@ import { generalInfo, services, type Service } from "@/lib/services";
 import { useRecognition } from "@/lib/use-recognition";
 import { useSpeaker } from "@/lib/use-speaker";
 import { parseDocCommand } from "@/lib/docs/commands";
+import { PaymentCancelled, payWithRazorpay, paymentsOnClient, type PaymentInfo } from "@/lib/pay-client";
+import { signInWithGoogle, supabaseBrowser } from "@/lib/supabase/client";
+import { authEnabled } from "@/lib/supabase/config";
 import { kb } from "@/lib/docs/compress";
 import { clearDocs } from "@/lib/docs/store";
 import { AnswerInput } from "./AnswerInput";
@@ -46,6 +49,8 @@ const SAY = {
   yesNoHelp: "ശരിയാണെങ്കിൽ ശരി എന്നും, അല്ലെങ്കിൽ അല്ല എന്നും പറയൂ.",
   review:
     "എല്ലാ വിവരങ്ങളും കിട്ടി. സ്ക്രീനിലെ വിവരങ്ങൾ കുടുംബത്തിലെ ആരെയെങ്കിലും കൊണ്ട് ഒന്നു നോക്കിക്കൂ. അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കട്ടെ?",
+  payOpening: "പണമടയ്ക്കാനുള്ള സ്ക്രീൻ തുറക്കുന്നു. യു.പി.ഐ., കാർഡ്, നെറ്റ് ബാങ്കിങ് ഇവയിൽ ഏതും ഉപയോഗിക്കാം.",
+  payCancelled: "പണമടച്ചില്ല. തയ്യാറാകുമ്പോൾ അയയ്ക്കൂ എന്ന് പറയൂ, അല്ലെങ്കിൽ ബട്ടൺ അമർത്തൂ.",
   notSent: "ശരി, അയച്ചില്ല. തിരുത്താൻ അവസാന ഉത്തരം തിരുത്തുക അമർത്തൂ. അയയ്ക്കാൻ അയയ്ക്കൂ എന്ന് പറയൂ.",
   unavailable: "ഈ സേവനത്തിന് ഈ ആപ്പ് വഴി അപേക്ഷിക്കാൻ കഴിയില്ല. ദയവായി അക്ഷയ കേന്ദ്രം സന്ദർശിക്കൂ.",
 };
@@ -71,7 +76,56 @@ const infoText = (s: Service) =>
     .filter(Boolean)
     .join(" ");
 
+/** With accounts on, applying needs Google sign-in first; asking questions never does. */
 export default function ApplyPage() {
+  const [signedIn, setSignedIn] = useState<boolean | null>(authEnabled ? null : true);
+  useEffect(() => {
+    const sb = supabaseBrowser();
+    if (!sb) return;
+    sb.auth.getUser().then(({ data }) => setSignedIn(Boolean(data.user)));
+    const { data } = sb.auth.onAuthStateChange((_e, session) => setSignedIn(Boolean(session?.user)));
+    return () => data.subscription.unsubscribe();
+  }, []);
+  if (signedIn === null) return <main className={styles.main} aria-busy="true" />;
+  return signedIn ? <ApplyFlow /> : <LoginGate />;
+}
+
+function LoginGate() {
+  const speaker = useSpeaker();
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    speaker.say(`${ML.loginNeeded} താഴെയുള്ള ബട്ടൺ അമർത്തൂ. ഒരിക്കൽ ലോഗിൻ ചെയ്താൽ മതി.`);
+  }, []);
+  return (
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <Link href="/" className={styles.homeLink}>
+          ← ചോദ്യം ചോദിക്കാൻ
+        </Link>
+        <h1 className={styles.title}>സർട്ടിഫിക്കറ്റ് അപേക്ഷ</h1>
+      </header>
+      <section className={styles.card}>
+        <p className={styles.question}>{ML.loginNeeded}</p>
+        <p className={styles.small}>
+          Sign in with Google to apply. Your applications are saved to your account. Asking questions needs no sign-in.
+        </p>
+        <button
+          className={styles.primary}
+          disabled={busy}
+          onClick={() => {
+            setBusy(true);
+            // Comes back to the same page, keeping ?service= if they came from the home mic.
+            void signInWithGoogle(window.location.pathname + window.location.search);
+          }}
+        >
+          {busy ? ML.oneMoment : "Google ഉപയോഗിച്ച് തുടരുക"}
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function ApplyFlow() {
   const [screen, setScreenState] = useState<Screen>("pick");
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Answers>({});
@@ -86,6 +140,7 @@ export default function ApplyPage() {
   const [sentRef, setSentRef] = useState<string | null>(null);
   const [docResults, setDocResults] = useState<DocResult[] | null>(null); // null = not scanned yet
   const docRef = useRef<DocCaptureHandle>(null);
+  const saved = useRef<{ application_id: string; payment: PaymentInfo | null } | null>(null); // saved, awaiting payment/send
   const askPrefix = useRef(""); // said before the question on the next re-ask
   const noSpeechRetried = useRef(false); // one automatic re-listen after silence
   const speaker = useSpeaker();
@@ -120,6 +175,15 @@ export default function ApplyPage() {
     [service, answers, screen],
   );
 
+  /** Review prompt; says the VayoSeva service fee when payments are on (never the government fee). */
+  function reviewText() {
+    if (!paymentsOnClient || !service) return SAY.review;
+    return SAY.review.replace(
+      "അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കട്ടെ?",
+      `VayoSeva സേവന ചാർജ് ${service.service_fee_inr} രൂപ. സർക്കാർ ഫീസ് അക്ഷയ കേന്ദ്രം അറിയിക്കും. പണമടച്ച് അയയ്ക്കട്ടെ?`,
+    );
+  }
+
   /**
    * Speak, then (if the mic is allowed) listen for the reply automatically.
    * `then(spoken)` runs after speaking; `spoken` is false if no sound came out.
@@ -149,7 +213,7 @@ export default function ApplyPage() {
       // Questions done: photograph the documents (once), then review.
       if (docResults === null && docsToScan.length) return setScreen("docs");
       setScreen("review");
-      talk(SAY.review, true);
+      talk(reviewText(), true);
       return;
     }
     const prefix = askPrefix.current;
@@ -346,6 +410,7 @@ export default function ApplyPage() {
   function goBack() {
     rec.abort();
     speaker.stop();
+    saved.current = null; // answers will change: a fresh application will be saved
     setHint("");
     setPending(null);
     setFails(0);
@@ -360,19 +425,40 @@ export default function ApplyPage() {
     setAskNonce((x) => x + 1);
   }
 
+  /**
+   * With accounts on: save the application (once) → pay with Razorpay (if fees
+   * are on) → submit, where the server verifies the payment and emails it.
+   * Without accounts (demo): submit the answers directly.
+   */
   async function send() {
     if (!application || busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     setHint("");
     try {
-      const res = await fetch("/api/submit", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ application, documents: await docsPayload(docResults) }),
-      });
-      const body = await res.json().catch(() => null);
-      if (!res.ok || !body?.ref) throw new Error(body?.error || ML.apiError);
+      let payload: Record<string, unknown> = { application };
+      if (authEnabled) {
+        // Reuse the saved application + order if they retry, so nobody is charged twice.
+        saved.current ??= await postJson("/api/applications", { application });
+        const { application_id, payment } = saved.current as { application_id: string; payment: PaymentInfo | null };
+        payload = { application_id };
+        if (payment) {
+          talk(SAY.payOpening);
+          try {
+            payload = { ...payload, ...(await payWithRazorpay(payment, service?.name_en ?? "Certificate")) };
+          } catch (err) {
+            if (err instanceof PaymentCancelled) {
+              setHint(SAY.payCancelled);
+              talk(SAY.payCancelled, true);
+              return;
+            }
+            throw err;
+          }
+        }
+      }
+      const body = await postJson("/api/submit", { ...payload, documents: await docsPayload(docResults) });
+      if (!body?.ref) throw new Error(ML.apiError);
+      saved.current = null;
       void clearDocs(); // sent: drop the temporary copies from the phone
       setSentRef(body.ref);
       setScreen("sent");
@@ -395,6 +481,7 @@ export default function ApplyPage() {
   function restart() {
     rec.abort();
     speaker.stop();
+    saved.current = null;
     setScreen("pick");
     setServiceId(null);
     setAnswers({});
@@ -572,7 +659,7 @@ export default function ApplyPage() {
             onComplete={(results) => {
               setDocResults(results);
               setScreen("review");
-              talk(SAY.review, true);
+              talk(reviewText(), true);
             }}
           />
           {mic}
@@ -601,8 +688,17 @@ export default function ApplyPage() {
             </section>
           )}
           <button className={styles.primary} onClick={send} disabled={busy}>
-            {busy ? ML.oneMoment : "അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കുക"}
+            {busy
+              ? ML.oneMoment
+              : paymentsOnClient && service
+                ? `₹${service.service_fee_inr} അടച്ച് അയയ്ക്കുക`
+                : "അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കുക"}
           </button>
+          {paymentsOnClient && service && (
+            <p className={styles.small}>
+              VayoSeva സേവന ചാർജ് ₹{service.service_fee_inr} · Service fee. {ML.feeLine} (Government fee is separate.)
+            </p>
+          )}
           <button className={styles.linkButton} onClick={goBack}>
             ← അവസാന ഉത്തരം തിരുത്തുക
           </button>
@@ -621,6 +717,11 @@ export default function ApplyPage() {
           <p className={styles.small}>
             Demo mode: the application was not emailed yet. It is logged on the server with ID numbers masked.
           </p>
+          {authEnabled && (
+            <Link href="/my-applications" className={styles.secondary} style={{ display: "flex", alignItems: "center", textDecoration: "none", padding: "0 20px" }}>
+              എന്റെ അപേക്ഷകൾ · My applications
+            </Link>
+          )}
           <button className={styles.secondary} onClick={restart}>
             പുതിയ അപേക്ഷ
           </button>
@@ -650,6 +751,19 @@ function PdfLink({ pdf, label }: { pdf: Blob; label: string }) {
       {label}
     </a>
   );
+}
+
+/** POST JSON; throws an Error carrying the server's (Malayalam) message on failure. */
+async function postJson(url: string, data: unknown) {
+  let res: Response;
+  try {
+    res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+  } catch {
+    throw new Error(ML.networkError);
+  }
+  const body = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(body?.error || ML.apiError);
+  return body;
 }
 
 const blobToBase64 = (b: Blob) =>

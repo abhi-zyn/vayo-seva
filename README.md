@@ -49,6 +49,44 @@ No database, no login, no analytics. Free tiers only.
 - Answers aren't saved in the browser: closing the tab loses an unfinished application. Scanned
   PDFs are kept temporarily in the browser (IndexedDB) and cleared after sending or restarting.
 
+## Accounts and payments (Supabase + Google + Razorpay)
+
+Optional. With these keys empty the app works as before: no login, no fee, nothing saved.
+When on: asking questions stays open; **applying** asks for Google sign-in once; the review
+screen charges the certificate's VayoSeva service fee with Razorpay; the application is saved to
+the user's account and listed on **എന്റെ അപേക്ഷകൾ** (`/my-applications`). Scanned PDFs are
+not stored, only which documents were sent and their page counts. After the email goes out,
+Aadhaar, mobile, ration card, voter ID and email in the saved answers are cut to the last 4 digits.
+
+**1. Supabase** (free): create a project at https://supabase.com.
+- SQL Editor → New query → paste [`supabase/schema.sql`](supabase/schema.sql) → Run.
+- Project Settings → API: copy the URL, the anon/publishable key and the service_role key into
+  `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`.
+- Authentication → URL Configuration: Site URL = your Vercel URL; add
+  `http://localhost:3000/auth/callback` and `https://<your-app>.vercel.app/auth/callback` to
+  Redirect URLs.
+
+**2. Google sign-in**: Google Cloud Console → APIs & Services → Credentials → Create OAuth client
+ID (Web application). Authorized redirect URI: the callback shown in Supabase → Authentication →
+Sign In / Providers → Google (`https://<project>.supabase.co/auth/v1/callback`). Paste the
+client ID and secret into that Supabase Google provider and enable it.
+
+**3. Razorpay** (Test Mode first): Dashboard → API Keys → generate. Set `RAZORPAY_KEY_ID`,
+`RAZORPAY_KEY_SECRET`, and `NEXT_PUBLIC_RAZORPAY_KEY_ID` (same as the key id). Webhooks → Add:
+URL `https://<your-app>.vercel.app/api/razorpay/webhook`, events `payment.captured` and
+`order.paid`, a secret of your choice → `RAZORPAY_WEBHOOK_SECRET`. (Webhooks need a public URL;
+locally the payment is still verified by signature on submit.) Test cards and UPI ids:
+https://razorpay.com/docs/payments/payments/test-card-upi-details/
+
+**4. Fees**: set `service_fee_inr` (whole rupees) for each certificate in `data/services.json`.
+They are **placeholders (₹30) now**. This is VayoSeva's own service fee; the government fee is
+separate and still not quoted ("ഫീസ് അക്ഷയ കേന്ദ്രം അറിയിക്കും").
+
+**How a paid application flows:** review → `POST /api/applications` (saves it, creates the
+Razorpay order from the server-side fee) → Razorpay Checkout → `POST /api/submit` (verifies the
+payment signature, emails the operator with PDFs, masks IDs, status `sent`). If the email fails
+after payment, the status stays `paid` and pressing send again retries without charging twice.
+
 ## Email delivery (Resend)
 
 Finished applications can be emailed to the Akshaya operator: a readable summary, the scanned
