@@ -1,0 +1,53 @@
+[
+  {
+    "id": "income-certificate",
+    "name_en": "Income Certificate",
+    "name_ml": "വരുമാന സർട്ടിഫിക്കറ്റ്",
+    "used_for": "PLACEHOLDER: proof of annual family income, e.g. for scholarships, welfare schemes or fee concessions.",
+    "documents": [
+      "PLACEHOLDER: identity proof of the applicant",
+      "PLACEHOLDER: proof of income (e.g. salary certificate or self-declaration)",
+      "PLACEHOLDER: ration card"
+    ],
+    "fee": "VERIFY",
+    "issued_by": "PLACEHOLDER: Village Office via Kerala e-District",
+    "notes": "PLACEHOLDER entry. Not verified. Replace every field with details from an official source before any demo.",
+    "source": "TODO: add official source",
+    "last_verified": "never",
+    "verified": false
+  },
+  {
+    "id": "residence-nativity-certificate",
+    "name_en": "Residence / Nativity Certificate",
+    "name_ml": "താമസ / നേറ്റിവിറ്റി സർട്ടിഫിക്കറ്റ്",
+    "used_for": "PLACEHOLDER: proof that the applicant lives in, or is a native of, Kerala, e.g. for admissions or jobs.",
+    "documents": [
+      "PLACEHOLDER: identity proof of the applicant",
+      "PLACEHOLDER: proof of address (e.g. ration card or property tax receipt)",
+      "PLACEHOLDER: proof of birth place, for nativity"
+    ],
+    "fee": "VERIFY",
+    "issued_by": "PLACEHOLDER: Village Office / Taluk Office via Kerala e-District",
+    "notes": "PLACEHOLDER entry. Not verified. Residence and nativity may be separate certificates; confirm with an official source.",
+    "source": "TODO: add official source",
+    "last_verified": "never",
+    "verified": false
+  },
+  {
+    "id": "community-certificate",
+    "name_en": "Community Certificate",
+    "name_ml": "ജാതി സർട്ടിഫിക്കറ്റ്",
+    "used_for": "PLACEHOLDER: proof of community or caste, e.g. for reservation in education or jobs.",
+    "documents": [
+      "PLACEHOLDER: identity proof of the applicant",
+      "PLACEHOLDER: school certificate showing community",
+      "PLACEHOLDER: community certificate of a parent, if available"
+    ],
+    "fee": "VERIFY",
+    "issued_by": "PLACEHOLDER: Village Office / Tahsildar via Kerala e-District",
+    "notes": "PLACEHOLDER entry. Not verified. Replace every field with details from an official source before any demo.",
+    "source": "TODO: add official source",
+    "last_verified": "never",
+    "verified": false
+  }
+]

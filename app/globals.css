@@ -1,0 +1,29 @@
+:root {
+  --bg: #ffffff;
+  --fg: #111111;
+  --muted: #555555;
+  --border: #cccccc;
+  --accent: #0b5cad;
+  --ok: #1b7a2e;
+  --bad: #b3261e;
+  --panel: #f3f4f6;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  /* Android ships Noto Sans Malayalam; listed explicitly for desktop fallback. */
+  font-family: system-ui, "Noto Sans Malayalam", "Nirmala UI", sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}

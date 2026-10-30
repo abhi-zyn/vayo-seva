@@ -1,0 +1,118 @@
+.main {
+  padding: 16px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.section h2 {
+  margin-top: 0;
+  font-size: 1.2rem;
+}
+
+.ok {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.bad {
+  color: var(--bad);
+  font-weight: 600;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.bigButton {
+  width: 100%;
+  min-height: 64px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bigButton:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+.secondButton {
+  margin-top: 8px;
+  background: #5b3ea8;
+}
+
+.listening {
+  background: var(--bad);
+}
+
+.output {
+  margin-top: 12px;
+}
+
+.label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.transcript {
+  min-height: 3em;
+  padding: 12px;
+  background: var(--panel);
+  border-radius: 8px;
+  font-size: 1.3rem;
+}
+
+.interim {
+  color: var(--muted);
+}
+
+.sample {
+  font-size: 1.1rem;
+}
+
+.voiceList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.voiceButton {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font-size: 0.95rem;
+}
+
+.mlVoice {
+  border: 2px solid var(--ok);
+  background: #e8f5ea;
+}
+
+.log {
+  background: var(--panel);
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  max-height: 240px;
+  overflow-y: auto;
+}
