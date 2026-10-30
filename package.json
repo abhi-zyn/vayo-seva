@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "questions": "node scripts/run-questions.ts"
+    "questions": "node scripts/run-questions.ts",
+    "brand": "node scripts/build-brand.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.32.0",

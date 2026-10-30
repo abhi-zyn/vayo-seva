@@ -13,6 +13,8 @@ type Handlers = {
   onEnd?: () => void;
   /** Called when no engine could speak; the caller should fall back to text. */
   onFail?: (reason: string) => void;
+  /** Roughly which character is being spoken now (drives the word underline). */
+  onProgress?: (charIndex: number) => void;
   speed?: Speed;
 };
 
@@ -61,6 +63,7 @@ export async function speakText(
       onStart: () => h.onStart?.("browser"),
       onEnd: () => h.onEnd?.(),
       onError: (err) => h.onFail?.(`speechSynthesis: ${err}`),
+      onBoundary: (i) => h.onProgress?.(i), // exact word timing from the voice
     });
     return;
   }
@@ -74,7 +77,16 @@ export async function speakText(
     audio = a;
     // Events from an audio element that a replay already replaced are ignored.
     a.onplaying = () => {
-      if (audio === a) h.onStart?.("gemini");
+      if (audio !== a) return;
+      h.onStart?.("gemini");
+      // Audio files carry no word timings, so estimate: position in the
+      // recording maps to position in the text. Close enough for an underline.
+      const tick = () => {
+        if (audio !== a || a.paused || !a.duration) return;
+        h.onProgress?.(Math.floor((a.currentTime / a.duration) * text.length));
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
     };
     a.onended = () => {
       if (audio !== a) return;

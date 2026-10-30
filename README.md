@@ -1,16 +1,81 @@
-# അക്ഷയ സഹായി: Malayalam voice assistant (Stage 1)
+# അക്ഷയ സഹായി: Malayalam voice assistant
 
 > [!WARNING]
-> **The knowledge base contains placeholders, not real requirements.**
-> Every entry in [`data/services.json`](data/services.json) is a made-up placeholder with
-> `"verified": false`, `"fee": "VERIFY"` and no source. Before **any** demo, replace each entry
-> with details verified from official Kerala e-District / Akshaya sources or confirmed by an
-> Akshaya operator. Then fill in `source`, set `last_verified` to the date you checked, and set
-> `"verified": true`. Until then the app shows a "not yet verified" badge on answers that use them.
+> **Check the knowledge base before any demo.** [`data/services.json`](data/services.json) holds
+> 10 e-District services taken from the official e-District FAQ (checked 2026-10-31). Fees are
+> **not confirmed** (`"fee": "VERIFY"`), and the app never says an amount. The **Residence
+> Certificate** is still `"verified": false`: its official document list isn't published and the
+> building tax receipt is a placeholder, so answers using it show a "not yet verified" badge. Re-check
+> every entry against edistrict.kerala.gov.in or with an Akshaya operator, and update `last_verified`.
 
-A senior citizen speaks (or types) a question in Malayalam. The app answers in short, simple
-spoken Malayalam, grounded only in the local knowledge base, and reads the answer aloud.
+Two modes for senior citizens, both in simple spoken Malayalam:
+
+1. **Ask** (`/`): speak or type a question; the app answers only from the knowledge base and reads
+   the answer aloud.
+2. **Apply** (`/apply`, "Sahayi"): pick one of 10 certificates; the app asks for the applicant's
+   details one question at a time, reads each answer back ("ശരിയാണോ?"), then sends a summary to
+   the Akshaya operator, who files it on edistrict.kerala.gov.in.
+
 No database, no login, no analytics. Free tiers only.
+
+## How the application interview works
+
+- **The order is fixed in code**, not decided by the model: Part A personal details
+  ([`lib/apply/part-a.ts`](lib/apply/part-a.ts)), then each service's extra details
+  ([`lib/apply/service-fields.ts`](lib/apply/service-fields.ts)). Family members repeat until
+  "ഇനിയും ആരെങ്കിലും ഉണ്ടോ?" is answered no.
+- **Spoken answers** (names, places, purpose, occupation, income) go to `POST /api/extract`, which
+  returns `{ field, malayalam_raw, english_value, confidence, note_for_operator }`. Names and places
+  are transliterated to UPPERCASE ("രാമൻ നായർ" → RAMAN NAIR), and purposes are translated. One small
+  lite-model call per spoken answer: about 12 for a whole application.
+- **Voice-first, hands-free.** On the home screen, "എനിക്ക് വരുമാന സർട്ടിഫിക്കറ്റ് വേണം" opens that
+  application directly (`/apply?service=…`). Every screen is read aloud in Malayalam, then
+  listens by itself (once the mic is allowed). The info screen moves on to the questions after
+  reading, and the review screen sends when you say "അയയ്ക്കൂ". Silence gets one automatic re-ask.
+  Every step can also be tapped or typed.
+- **Numbers and dates can be spoken or typed.** Spoken words become digits ("ഒമ്പത് എട്ട്…" →
+  98…, "അഞ്ച് ഓഗസ്റ്റ് …" → 05/08/…; numerals skip the model), then the same checks run in code:
+  Aadhaar 12 digits, mobile starts 6–9, PIN starts 67/68/69, real past dates. Read back digit by
+  digit. Saying "ഇല്ല" skips an optional question.
+- **Every answer is read back** with "ശരിയാണോ?". After two misses the app asks them to type or get a
+  family member's help. "അറിയില്ല" records `null` and moves on. Option taps don't need confirming.
+- **Caste → SC/ST?** Yes switches to the Community Certificate. Legal heir, possession, solvency,
+  valuation and birth/death/marriage registration are refused with the reason.
+- **Monthly income × 12 is done in code**, never by the model.
+- **Sending** goes through [`lib/delivery.ts`](lib/delivery.ts). `DELIVERY_MODE=dummy` (default)
+  logs the application on the server with Aadhaar, mobile and ration numbers masked, and shows a
+  reference like `AKS-261031-4629`. `DELIVERY_MODE=resend` emails the operator instead (see
+  "Email delivery" below). Real delivery carries full Aadhaar numbers: send only to operators.
+- Answers aren't saved in the browser: closing the tab loses an unfinished application. Scanned
+  PDFs are kept temporarily in the browser (IndexedDB) and cleared after sending or restarting.
+
+## Email delivery (Resend)
+
+Finished applications can be emailed to the Akshaya operator: a readable summary, the scanned
+PDFs as attachments, and the full answers as a JSON attachment.
+
+1. Create a free account at https://resend.com and an API key at https://resend.com/api-keys.
+2. In `.env.local` (and in Vercel → Project Settings → Environment Variables):
+   ```
+   DELIVERY_MODE=resend
+   RESEND_API_KEY=re_...
+   OPERATOR_EMAIL=operator@example.com          # several: a@x.in,b@y.in
+   DELIVERY_FROM=                                # optional, see below
+   ```
+3. Restart `npm run dev`, finish an application, and check the operator's inbox.
+
+**Sender address:** with `DELIVERY_FROM` empty, emails come from Resend's test sender
+`onboarding@resend.dev`, which **only delivers to the email address you signed up to Resend
+with**. That's fine for a demo: set `OPERATOR_EMAIL` to that address. To send to any other
+address, verify a domain in Resend (Domains → Add) and set e.g.
+`DELIVERY_FROM=VayoSeva <applications@yourdomain.in>`. The sender must use the **exact**
+verified domain: if you verified a subdomain like `vayoseva.zenvx.in`, send from
+`applications@vayoseva.zenvx.in`, not `@zenvx.in`. The sender address needs no inbox;
+`OPERATOR_EMAIL` is the real inbox that receives applications.
+
+If sending fails (wrong key, unverified sender), the user hears the friendly "try again" message
+and the server log shows Resend's reason. Each email uses the reference number as Resend's
+idempotency key, so a retried submit doesn't send a duplicate.
 
 ## Setup
 
@@ -81,9 +146,12 @@ Add an object to the array in `data/services.json`. All fields are required:
 | `id` | string | Unique, kebab-case, e.g. `income-certificate` |
 | `name_en` / `name_ml` | string | Service name in English / Malayalam |
 | `used_for` | string | What the certificate or service is used for |
-| `documents` | string[] | Documents the applicant must bring |
+| `documents` | string[] | What the app asks the applicant to keep ready ("Ask for") |
+| `edistrict_name` | string | Exact service name on edistrict.kerala.gov.in |
+| `validity` / `processing_time` | string | e.g. `1 year`, `6 working days`, `Not listed` |
+| `accepted_documents` | string[] | Official list of alternatives the officer may accept; `[]` if not published |
+| `documents_ml` | string[] | Malayalam for each `documents` item, spoken as-is by the interview |
 | `fee` | string | Fee as text; `"VERIFY"` until confirmed |
-| `issued_by` | string | Issuing office |
 | `notes` | string | Anything else worth saying |
 | `source` | string | Official URL or "Akshaya operator, <place>, <date>" |
 | `last_verified` | string | Date you last checked it, e.g. `2026-11-02` (`"never"` for placeholders) |

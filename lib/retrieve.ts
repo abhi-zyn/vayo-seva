@@ -20,7 +20,7 @@ export async function retrieve(question: string): Promise<Service[]> {
 }
 
 function entryText(s: Service): string {
-  return [s.name_en, s.name_ml, s.used_for, s.documents.join("; "), s.issued_by].join("\n");
+  return [s.name_en, s.name_ml, s.used_for, s.documents.join("; "), s.notes].join("\n");
 }
 
 async function embed(texts: string[], taskType: "RETRIEVAL_DOCUMENT" | "RETRIEVAL_QUERY"): Promise<number[][]> {

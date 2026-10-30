@@ -1,29 +1,169 @@
+/* VayoSeva design tokens. Flat colour only, taken from the logo.
+   Contrast: ink on ground/surface is 11.8–14:1 (AAA). Text on teal is white on
+   #1F5E60 (7.5:1). In dark mode the raised teal #3A8C8E is used for glyphs and
+   outlines only: white text on it would be 3.9:1, so text-bearing teal
+   surfaces stay #1F5E60 in both themes. */
+
 :root {
-  --bg: #ffffff;
-  --fg: #111111;
-  --muted: #555555;
-  --border: #cccccc;
-  --accent: #0b5cad;
-  --ok: #1b7a2e;
-  --bad: #b3261e;
-  --panel: #f3f4f6;
+  --ground: #ffffff;
+  --surface: #e1ecea;
+  --surface-2: #d3e3e0; /* pressed/hover step on surface */
+  --field: #ffffff; /* input fields only */
+  --field-ink: #16262d;
+  --ink: #16262d;
+  --ink-soft: #2b4049; /* secondary text, still 9.7:1 on ground */
+  --teal: #1f5e60; /* text-bearing fills: primary mic, main actions */
+  --teal-pressed: #174a4c;
+  --teal-glyph: #1f5e60; /* icons and outlines */
+  --on-teal: #ffffff;
+  --orange: #f26a1f; /* graphics, focus, progress, active: never text on light */
+  --error: #a3261b; /* icon + border only; error words are set in ink */
+  --paper: #ffffff; /* document fill inside the logo */
+  --radius: 28px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --font-display: var(--font-anek), "Noto Sans Malayalam", system-ui, sans-serif;
+  --font-body: var(--font-manjari), "Noto Sans Malayalam", system-ui, sans-serif;
+  --font-latin: var(--font-outfit), system-ui, sans-serif;
+
+  /* Old names kept for the /voice-test page. */
+  --bg: var(--ground);
+  --fg: var(--ink);
+  --muted: var(--ink-soft);
+  --border: var(--surface-2);
+  --accent: var(--teal);
+  --ok: #1b6b2e;
+  --bad: var(--error);
+  --panel: var(--surface);
+
+  color-scheme: light;
+}
+
+/* Light is the default on every device. Dark only applies when
+   <html data-theme="dark"> is set explicitly (it no longer follows the phone's setting). */
+:root[data-theme="dark"] {
+  & {
+    --ground: #16262d;
+    --surface: #1f333b;
+    --surface-2: #29434d;
+    --field: #eef4f3;
+    --field-ink: #16262d;
+    --ink: #eef4f3;
+    --ink-soft: #c9d8d6;
+    --teal: #1f5e60;
+    --teal-pressed: #174a4c;
+    --teal-glyph: #3a8c8e;
+    --paper: #1f333b;
+    --error: #ff8a7a; /* graphics on dark need the lighter red to be visible */
+    --ok: #7fd18f;
+    color-scheme: dark;
+  }
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--fg);
-  /* Android ships Noto Sans Malayalam; listed explicitly for desktop fallback. */
-  font-family: system-ui, "Noto Sans Malayalam", "Nirmala UI", sans-serif;
-  font-size: 18px;
-  line-height: 1.5;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 22px;
+  line-height: 1.55;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
 }
 
 button {
-  font: inherit;
   cursor: pointer;
+}
+
+/* Every interactive element: a 4px orange ring, offset 3px. */
+:focus-visible {
+  outline: 4px solid var(--orange);
+  outline-offset: 3px;
+}
+
+/* Press feedback for all buttons: scale .97, darker fill (set per component). */
+button,
+.vs-btn {
+  transition:
+    transform 120ms var(--ease-out),
+    background-color 120ms linear;
+}
+button:active:not(:disabled),
+.vs-btn:active {
+  transform: scale(0.97);
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Sections enter once: heading, then text, then control, 80ms apart. */
+.vs-enter > * {
+  animation: vs-rise 520ms var(--ease-out) both;
+}
+.vs-enter > *:nth-child(2) {
+  animation-delay: 80ms;
+}
+.vs-enter > *:nth-child(3) {
+  animation-delay: 160ms;
+}
+.vs-enter > *:nth-child(4) {
+  animation-delay: 240ms;
+}
+.vs-enter > *:nth-child(n + 5) {
+  animation-delay: 320ms;
+}
+
+@keyframes vs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes vs-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Reduced motion: content stays, motion becomes opacity only. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-name: vs-fade !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity, background-color !important;
+    scroll-behavior: auto !important;
+  }
+  button:active:not(:disabled),
+  .vs-btn:active {
+    transform: none;
+  }
 }

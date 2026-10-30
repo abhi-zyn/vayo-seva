@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 120" role="img" aria-label="VayoSeva">
+  <title>VayoSeva</title>
+  <g id="figure-helper">
+    <circle cx="17" cy="13" r="10" fill="#3A8C8E"/>
+    <path d="M4 37 C4 30 9.5 25.5 16.5 25.5 C21 25.5 24.5 27.2 27.5 30 L50 40.5 C53.6 42.2 52.6 47.4 48.6 47.2 L33 45.5 L43.5 98 L45 110 C45.6 115.8 38.6 117.6 36.4 112.6 L5.6 47.6 C4.6 44.4 4 40.8 4 37 Z" fill="#3A8C8E"/>
+  </g>
+  <g id="figure-elder">
+    <circle cx="80" cy="14.5" r="10" fill="#3A8C8E"/>
+    <circle cx="88.5" cy="5.5" r="4.8" fill="#3A8C8E"/>
+    <path d="M51.5 46.5 C50.8 43.3 52.6 41.2 55.4 40 L68 32.6 C71.8 30 76 28.6 80.6 28.6 C94 28.6 105.4 38.4 107 52.6 L107.6 70 H70 L48.4 112.4 C46.6 116.2 40.6 115 41.2 110.6 L52.6 59 Z" fill="#3A8C8E"/>
+  </g>
+  <g id="circuit-traces">
+    <path d="M41 24 L51 35 L62 23" fill="none" stroke="#F26A1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+    <path d="M51 35 V60" fill="none" stroke="#F26A1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+    <path d="M51 53 L58 49 H74 L84 46" fill="none" stroke="#F26A1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+    <path d="M21 50 L17.5 60 V70 L29 82 L40 95" fill="none" stroke="#F26A1F" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+  </g>
+  <g id="circuit-nodes">
+    <circle cx="41" cy="24" r="3.4" fill="#F26A1F"/>
+    <circle cx="62" cy="23" r="3.4" fill="#F26A1F"/>
+    <circle cx="51" cy="60" r="3.4" fill="#F26A1F"/>
+    <circle cx="84" cy="46" r="3.4" fill="#F26A1F"/>
+    <circle cx="21" cy="50" r="3.4" fill="#F26A1F"/>
+    <circle cx="17.5" cy="70" r="2.6" fill="#F26A1F"/>
+    <circle cx="40" cy="95" r="3.4" fill="#F26A1F"/>
+  </g>
+  <g id="document">
+    <path d="M68.5 64.5 H96 L106 74.5 V110 C106 112.2 104.2 114 102 114 H72.5 C70.3 114 68.5 112.2 68.5 110 Z" fill="#1F333B" stroke="#3A8C8E" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M96 64.5 V74.5 H106" fill="none" stroke="#3A8C8E" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g id="tick">
+    <path d="M78.5 91 L88.5 100.5 L114.5 73" fill="none" stroke="#F26A1F" stroke-width="4.8" stroke-linecap="round" stroke-linejoin="round" pathLength="1"/>
+  </g>
+  <text x="134" y="78" font-family="Outfit, 'Anek Latin', system-ui, sans-serif" font-weight="600" font-size="52" letter-spacing="-1" fill="#EEF4F3">VayoSeva</text>
+</svg>

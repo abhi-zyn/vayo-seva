@@ -132,6 +132,8 @@ export function speak(
     onStart?: () => void;
     onEnd?: (ms: number) => void;
     onError?: (err: string) => void;
+    /** Character index of each word as it is spoken (drives the word underline). */
+    onBoundary?: (charIndex: number) => void;
     /** utterance.rate; slower than normal by default for senior listeners. */
     rate?: number;
   } = {},
@@ -148,6 +150,9 @@ export function speak(
   u.onstart = () => {
     startedAt = performance.now();
     handlers.onStart?.();
+  };
+  u.onboundary = (e) => {
+    if (currentUtterance === u && e.name !== "sentence") handlers.onBoundary?.(e.charIndex);
   };
   // After cancel(), Chrome can still fire the old utterance's onend late, which
   // would mark a replay as finished while it's still talking. Ignore any event

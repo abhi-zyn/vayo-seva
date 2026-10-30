@@ -11,6 +11,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { SpeedPicker } from "@/components/SpeedPicker";
+import { SuccessState } from "@/components/states/SuccessState";
+import { STRINGS } from "@/lib/ui-strings";
 import { askText, detectYesNo, nextField, saysDontKnow, saysNone, stepsFor } from "@/lib/apply/engine";
 import { extractAnswer } from "@/lib/apply/extract-client";
 import { digitsMl, processingMl, readBack, totalYearly, validityMl } from "@/lib/apply/readback";
@@ -21,12 +23,16 @@ import { ML, recognitionErrorMl } from "@/lib/messages";
 import { generalInfo, services, type Service } from "@/lib/services";
 import { useRecognition } from "@/lib/use-recognition";
 import { useSpeaker } from "@/lib/use-speaker";
+import { parseDocCommand } from "@/lib/docs/commands";
+import { kb } from "@/lib/docs/compress";
+import { clearDocs } from "@/lib/docs/store";
 import { AnswerInput } from "./AnswerInput";
+import { DocCapture, type DocCaptureHandle, type DocResult, type DocToScan } from "./DocCapture";
 import { MicButton } from "./MicButton";
 import { ReviewList } from "./ReviewList";
 import styles from "./apply.module.css";
 
-type Screen = "pick" | "scst" | "info" | "ask" | "confirm" | "review" | "sent" | "unavailable";
+type Screen = "pick" | "scst" | "info" | "ask" | "confirm" | "docs" | "review" | "sent" | "unavailable";
 
 const SAY = {
   pick: "ഏത് സർട്ടിഫിക്കറ്റാണ് വേണ്ടത്? പേര് പറയൂ, അല്ലെങ്കിൽ താഴെ നിന്ന് തിരഞ്ഞെടുക്കൂ.",
@@ -78,6 +84,8 @@ export default function ApplyPage() {
   const [hint, setHint] = useState("");
   const [askNonce, setAskNonce] = useState(0); // bump to re-ask the same question
   const [sentRef, setSentRef] = useState<string | null>(null);
+  const [docResults, setDocResults] = useState<DocResult[] | null>(null); // null = not scanned yet
+  const docRef = useRef<DocCaptureHandle>(null);
   const askPrefix = useRef(""); // said before the question on the next re-ask
   const noSpeechRetried = useRef(false); // one automatic re-listen after silence
   const speaker = useSpeaker();
@@ -93,6 +101,17 @@ export default function ApplyPage() {
 
   const service = services.find((s) => s.id === serviceId) ?? null;
   const steps = useMemo(() => (serviceId ? stepsFor(serviceId) : []), [serviceId]);
+  // Documents to photograph: the service's "keep ready" list, minus numbers that
+  // the operator types in (the ration card is verified by number, never uploaded).
+  const docsToScan: DocToScan[] = useMemo(
+    () =>
+      service
+        ? service.documents
+            .map((en, i) => ({ en, ml: service.documents_ml[i] }))
+            .filter((d) => !/number/i.test(d.en))
+        : [],
+    [service],
+  );
   const field = serviceId && (screen === "ask" || screen === "confirm") ? nextField(steps, answers) : null;
   const fieldIdRef = useRef<string | null>(null);
   fieldIdRef.current = field?.id ?? null;
@@ -127,6 +146,8 @@ export default function ApplyPage() {
   useEffect(() => {
     if (screen !== "ask") return;
     if (!field) {
+      // Questions done: photograph the documents (once), then review.
+      if (docResults === null && docsToScan.length) return setScreen("docs");
       setScreen("review");
       talk(SAY.review, true);
       return;
@@ -186,6 +207,9 @@ export default function ApplyPage() {
     noSpeechRetried.current = false;
     setHint("");
     const s = screenRef.current;
+    if (s === "docs") return docRef.current?.command(parseDocCommand(text));
+    // Demo shortcut, checked before yes/no (it contains "ഒഴിവാക്ക", not a yes or no).
+    if ((s === "ask" || s === "confirm") && /എല്ലാം ഒഴിവാക്ക|skip all/i.test(text)) return skipAllQuestions();
     if (s === "pick") {
       return interpret(text, { kind: "choice", label: "Certificate", ask: SAY.pick, options: SERVICE_OPTIONS, id: "service" });
     }
@@ -278,6 +302,30 @@ export default function ApplyPage() {
     talk(say, true); // keep listening: they can still answer by voice
   }
 
+  /**
+   * Demo shortcut: mark every remaining question as skipped (null) and go on to
+   * the documents. "Any more family members?" is answered no, so loops end.
+   */
+  function skipAllQuestions() {
+    if (busyRef.current) return;
+    rec.abort();
+    speaker.stop();
+    let a = answers;
+    const ids: string[] = [];
+    for (let f = nextField(steps, a); f; f = nextField(steps, a)) {
+      const value = f.id.endsWith(".more") ? "no" : null;
+      a = { ...a, [f.id]: { ...blank(f), english_value: value, confidence: 1, note_for_operator: "Skipped (demo)" } };
+      ids.push(f.id);
+    }
+    setAnswers(a);
+    setHistory((h) => [...h, ...ids]);
+    setPending(null);
+    setFails(0);
+    setHint("");
+    setScreen("ask"); // the ask effect sees no field left and moves on
+    setAskNonce((x) => x + 1);
+  }
+
   /** Rule 9: record null and move on. */
   function dontKnow(raw = "", f: FieldDef | null = field) {
     if (!f || busyRef.current) return;
@@ -321,10 +369,11 @@ export default function ApplyPage() {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ application }),
+        body: JSON.stringify({ application, documents: await docsPayload(docResults) }),
       });
       const body = await res.json().catch(() => null);
       if (!res.ok || !body?.ref) throw new Error(body?.error || ML.apiError);
+      void clearDocs(); // sent: drop the temporary copies from the phone
       setSentRef(body.ref);
       setScreen("sent");
       const when = OTP_TIME_ML[answers.otp_call_time?.english_value ?? ""] ?? "";
@@ -354,6 +403,8 @@ export default function ApplyPage() {
     setFails(0);
     setHint("");
     setSentRef(null);
+    setDocResults(null);
+    void clearDocs();
     talk(SAY.pick, true);
   }
 
@@ -383,7 +434,7 @@ export default function ApplyPage() {
         <h1 className={styles.title}>സർട്ടിഫിക്കറ്റ് അപേക്ഷ</h1>
       </header>
 
-      {rec.listening && <p className={styles.listening}>👂 കേൾക്കുന്നു… {rec.interim && `“${rec.interim}”`}</p>}
+      {rec.listening && <p className={styles.listening}>കേൾക്കുന്നു… {rec.interim && `“${rec.interim}”`}</p>}
       {hint && <p className={styles.hint}>{hint}</p>}
       {speaker.lastFailed && <p className={styles.small}>ശബ്ദം കേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല. സ്ക്രീനിൽ വായിക്കൂ.</p>}
 
@@ -486,6 +537,9 @@ export default function ApplyPage() {
               {field.optional ? "ഒഴിവാക്കുക" : "അറിയില്ല"}
             </button>
           </div>
+          <button className={styles.skipAll} onClick={skipAllQuestions} disabled={busy}>
+            എല്ലാ ചോദ്യങ്ങളും ഒഴിവാക്കുക · Skip all questions (demo)
+          </button>
         </section>
       )}
 
@@ -499,14 +553,30 @@ export default function ApplyPage() {
           <p className={styles.question}>ശരിയാണോ?</p>
           <div className={styles.options}>
             <button className={`${styles.option} ${styles.yes}`} onClick={accept}>
-              ✔ ശരി
+              ശരി
             </button>
             <button className={`${styles.option} ${styles.no}`} onClick={reject}>
-              ✘ അല്ല
+              അല്ല
             </button>
           </div>
           {mic}
         </section>
+      )}
+
+      {screen === "docs" && (
+        <>
+          <DocCapture
+            ref={docRef}
+            docs={docsToScan}
+            speak={(text) => talk(text, true)}
+            onComplete={(results) => {
+              setDocResults(results);
+              setScreen("review");
+              talk(SAY.review, true);
+            }}
+          />
+          {mic}
+        </>
       )}
 
       {screen === "review" && application && (
@@ -514,8 +584,24 @@ export default function ApplyPage() {
           <p className={styles.question}>അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കട്ടെ?</p>
           {mic}
           <ReviewList app={application} />
+          {docResults && docResults.length > 0 && (
+            <section className={styles.card}>
+              <h2 className={styles.cardTitle}>Scanned documents / ഫോട്ടോ എടുത്ത രേഖകൾ</h2>
+              <ul className={styles.docList}>
+                {docResults.map((d) => (
+                  <li key={d.en}>
+                    <span>{d.ml}</span>
+                    {d.pdf ? <PdfLink pdf={d.pdf} label={`PDF · ${d.pages} page${d.pages > 1 ? "s" : ""} · ${kb(d.pdf.size)}`} /> : <span>ഒഴിവാക്കി · skipped</span>}
+                  </li>
+                ))}
+              </ul>
+              <button className={styles.linkButton} onClick={() => { setDocResults(null); setScreen("docs"); }}>
+                രേഖകൾ വീണ്ടും എടുക്കുക
+              </button>
+            </section>
+          )}
           <button className={styles.primary} onClick={send} disabled={busy}>
-            {busy ? ML.oneMoment : "📤 അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കുക"}
+            {busy ? ML.oneMoment : "അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കുക"}
           </button>
           <button className={styles.linkButton} onClick={goBack}>
             ← അവസാന ഉത്തരം തിരുത്തുക
@@ -523,11 +609,13 @@ export default function ApplyPage() {
         </>
       )}
 
-      {screen === "sent" && (
-        <section className={`${styles.card} ${styles.doneCard}`}>
-          <h2 className={styles.cardTitle}>അപേക്ഷ അയച്ചു ✔</h2>
-          <p>റഫറൻസ് നമ്പർ / Reference number:</p>
-          <p className={styles.bigValue}>{sentRef}</p>
+      {screen === "sent" && sentRef && (
+        <SuccessState
+          t={STRINGS.ml}
+          alt={STRINGS.en}
+          refNo={sentRef}
+          onReadAloud={() => talk(`${STRINGS.ml.reference}: ${digitsMl(sentRef.split("-").pop() ?? "")}`)}
+        >
           <p>ഒ.ടി.പി.ക്കായി അക്ഷയ ഓപ്പറേറ്റർ വിളിക്കും. ഫോൺ അടുത്ത് വെക്കൂ.</p>
           <p>{ML.feeLine}</p>
           <p className={styles.small}>
@@ -536,7 +624,7 @@ export default function ApplyPage() {
           <button className={styles.secondary} onClick={restart}>
             പുതിയ അപേക്ഷ
           </button>
-        </section>
+        </SuccessState>
       )}
 
       <SpeedPicker value={speaker.speed} onChange={speaker.setSpeed} />
@@ -546,6 +634,41 @@ export default function ApplyPage() {
         <p>Information may change. Please confirm with your Akshaya center.</p>
       </footer>
     </main>
+  );
+}
+
+/** Opens a scanned PDF so a family member or the operator can check it. */
+function PdfLink({ pdf, label }: { pdf: Blob; label: string }) {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    const u = URL.createObjectURL(pdf);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [pdf]);
+  return (
+    <a href={url} target="_blank" rel="noreferrer">
+      {label}
+    </a>
+  );
+}
+
+const blobToBase64 = (b: Blob) =>
+  new Promise<string>((ok, fail) => {
+    const fr = new FileReader();
+    fr.onload = () => ok(String(fr.result).split(",")[1] ?? "");
+    fr.onerror = () => fail(fr.error);
+    fr.readAsDataURL(b);
+  });
+
+/** Scanned PDFs for the operator (skipped documents are listed with no file). */
+async function docsPayload(results: DocResult[] | null) {
+  return Promise.all(
+    (results ?? []).map(async (r) => ({
+      name: r.en,
+      pages: r.pages,
+      bytes: r.pdf?.size ?? 0,
+      pdf_base64: r.pdf ? await blobToBase64(r.pdf) : null,
+    })),
   );
 }
 

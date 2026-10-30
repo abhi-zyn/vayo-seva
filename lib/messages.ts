@@ -3,7 +3,10 @@
 export const ML = {
   oneMoment: "ഒരു നിമിഷം...",
   // Appended by the server to every answer, so it's there whichever model replied.
-  confirmClosing: "അന്തിമ വിവരങ്ങൾ അക്ഷയ കേന്ദ്രത്തിൽ നിന്ന് ഉറപ്പാക്കുക.",
+  confirmClosing: "അവസാന വിവരങ്ങൾ അക്ഷയ കേന്ദ്രം ഉറപ്പിച്ചു പറയും.",
+  feeLine: "ഫീസ് അക്ഷയ കേന്ദ്രം അറിയിക്കും.",
+  // Appended when an answer uses a service whose official document list isn't published.
+  listNotPublished: "ഈ സർട്ടിഫിക്കറ്റിന്റെ ഔദ്യോഗിക രേഖാ പട്ടിക പ്രസിദ്ധീകരിച്ചിട്ടില്ല.",
   greeting: "നമസ്കാരം! മൈക്ക് അമർത്തി നിങ്ങളുടെ ചോദ്യം ചോദിക്കൂ.",
   emptyQuestion: "ദയവായി നിങ്ങളുടെ ചോദ്യം പറയൂ.",
   tooLong: "ചോദ്യം വളരെ നീളമുള്ളതാണ്. ചുരുക്കി ചോദിക്കൂ.",

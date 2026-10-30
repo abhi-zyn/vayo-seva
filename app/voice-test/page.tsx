@@ -186,7 +186,7 @@ export default function VoiceTestPage() {
           disabled={!support.recognition}
           onClick={listening ? stopListening : startListening}
         >
-          {listening ? "■ Stop listening" : "🎤 Start listening"}
+          {listening ? "Stop listening" : "Start listening"}
         </button>
         <div className={styles.output}>
           <div className={styles.label}>Transcript</div>
@@ -216,10 +216,10 @@ export default function VoiceTestPage() {
           </p>
         )}
         <button className={styles.bigButton} disabled={!support.synthesis} onClick={() => speakWith(mlVoice)}>
-          🔊 Speak sample sentence
+          Speak sample sentence
         </button>
         <button className={`${styles.bigButton} ${styles.secondButton}`} onClick={speakWithGemini}>
-          ✨ Speak with Gemini (server TTS)
+          Speak with Gemini (server TTS)
         </button>
         <p className={styles.sample}>{SAMPLE_ML}</p>
         {ttsStatus && <p>{ttsStatus}</p>}

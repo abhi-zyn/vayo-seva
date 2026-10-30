@@ -1,0 +1,29 @@
+{
+  "source": "Kerala e-District official FAQ, checked 2026-10-31",
+  "facts": [
+    "Every applicant needs an e-District One Time Registration. Name, date of birth and Aadhaar must exactly match Aadhaar.",
+    "Applying for someone else needs that person's own e-District registration.",
+    "An OTP goes to the registered mobile. The Akshaya operator will phone the applicant to get it.",
+    "The ration card is not uploaded. The operator enters the number and e-District verifies it.",
+    "Document uploads: maximum 100 KB per page, 10 pages per file.",
+    "e-District support: email edistrict.ksitm@kerala.gov.in, phone 0471 2525444.",
+    "Fees are not confirmed. The Akshaya centre will tell the fee."
+  ],
+  "not_available": [
+    {
+      "name_en": "Legal heir certificate",
+      "name_ml": "അനന്തരാവകാശ സർട്ടിഫിക്കറ്റ്",
+      "reason": "Needs a gazette notice and a 30-day objection period."
+    },
+    {
+      "name_en": "Possession, solvency and valuation certificates",
+      "name_ml": "കൈവശാവകാശ, സോൾവൻസി, വാല്യുവേഷൻ സർട്ടിഫിക്കറ്റുകൾ",
+      "reason": "Need property documents and a site inspection."
+    },
+    {
+      "name_en": "Birth, death and marriage registration",
+      "name_ml": "ജനന, മരണ, വിവാഹ രജിസ്ട്രേഷൻ",
+      "reason": "Done on a different portal, K-SMART."
+    }
+  ]
+}

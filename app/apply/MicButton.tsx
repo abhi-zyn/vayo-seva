@@ -1,5 +1,6 @@
 "use client";
 
+import { Icon } from "@/components/brand/Logo";
 import styles from "./apply.module.css";
 
 type Props = {
@@ -12,7 +13,7 @@ type Props = {
 
 /** Mic for answering. Tapping while Sahayi talks interrupts it and starts listening. */
 export function MicButton({ listening, busy, speaking, onStart, onStop }: Props) {
-  const label = listening ? "കേൾക്കുന്നു… നിർത്താൻ അമർത്തൂ" : busy ? "ഒരു നിമിഷം..." : "🎤 ഉത്തരം പറയാൻ അമർത്തൂ";
+  const label = listening ? "കേൾക്കുന്നു… നിർത്താൻ അമർത്തൂ" : busy ? "ഒരു നിമിഷം..." : "ഉത്തരം പറയാൻ തൊടൂ";
   return (
     <button
       className={`${styles.mic} ${listening ? styles.micListening : ""}`}
@@ -21,6 +22,7 @@ export function MicButton({ listening, busy, speaking, onStart, onStop }: Props)
       aria-live="polite"
       data-speaking={speaking || undefined}
     >
+      <Icon name="mic" size={48} onTeal />
       {label}
     </button>
   );

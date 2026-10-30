@@ -99,7 +99,7 @@ export function AnswerInput({ field, typingMode, busy, mic, onPick, onKeyed, onT
         </form>
       ) : (
         <button className={styles.linkButton} onClick={() => setShowTyping(true)}>
-          ⌨️ ടൈപ്പ് ചെയ്യാം
+          ടൈപ്പ് ചെയ്യാം
         </button>
       )}
     </>

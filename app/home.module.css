@@ -1,0 +1,394 @@
+/* VayoSeva home. Surfaces separate by tone steps (ground → surface), never by
+   lines or shadows. Left-aligned everywhere except the mic. */
+
+/* ---------- top bar ---------- */
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 16px 24px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.brandWord {
+  font-size: 30px;
+}
+
+.topActions {
+  display: flex;
+  gap: 8px;
+}
+
+.topBtn {
+  min-height: 72px;
+  padding: 8px 20px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+}
+.topBtn:active {
+  background: var(--surface-2);
+}
+
+/* ---------- layout ---------- */
+
+.main {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 8px 24px 32px;
+}
+
+.layout {
+  display: grid;
+  gap: 28px;
+}
+
+.primaryCol,
+.secondaryCol {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 40px;
+    align-items: start;
+  }
+  .secondaryCol {
+    padding-top: 12px;
+  }
+}
+
+/* ---------- greeting ---------- */
+
+.greet {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.greeting {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(34px, 2.4vw + 22px, 56px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.prompt {
+  margin: 0;
+  font-size: 24px;
+  max-width: 30ch;
+}
+
+.heard {
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 24px;
+}
+.heardLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.inlineError {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: inset 6px 0 0 var(--error); /* a bar, plus the icon and the words */
+  font-size: 22px;
+}
+.inlineError svg {
+  flex: none;
+}
+
+/* ---------- secondary rows ---------- */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  min-height: 96px;
+  padding: 16px 20px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  text-decoration: none;
+}
+.row:active {
+  background: var(--surface-2);
+}
+.row svg {
+  flex: none;
+}
+
+.rowText {
+  flex: 1;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.15;
+}
+
+.rowAlt,
+.chipAlt {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-latin), var(--font-body);
+  font-weight: 600;
+  font-size: 18px;
+  color: var(--ink-soft);
+}
+
+.chevron {
+  margin-left: auto;
+}
+
+.typeBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.typeForm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hidden {
+  display: none;
+}
+
+.typeLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+}
+
+.typeInput {
+  width: 100%;
+  min-height: 120px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 18px;
+  background: var(--field);
+  color: var(--field-ink);
+  font-family: var(--font-body);
+  font-size: 24px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.typeSend,
+.rowBtn {
+  align-self: flex-start;
+  min-height: 76px;
+  padding: 10px 32px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--teal);
+  color: var(--on-teal);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+}
+.typeSend:active:not(:disabled),
+.rowBtn:active {
+  background: var(--teal-pressed);
+}
+.typeSend:disabled {
+  opacity: 0.6;
+}
+
+/* ---------- chips: text-first, read aloud when tapped ---------- */
+
+.sectionHead {
+  margin: 4px 0 12px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.chip {
+  min-height: 80px;
+  padding: 10px 22px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--ground);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 3px var(--surface-2); /* tone edge on ground, not a hairline */
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.15;
+  text-align: left;
+}
+.chip:active:not(:disabled) {
+  background: var(--surface);
+}
+.chip:disabled {
+  opacity: 0.6;
+}
+
+/* ---------- voice notice ---------- */
+
+.voiceNote {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 22px;
+  color: var(--ink);
+}
+.voiceNote svg {
+  flex: none;
+}
+
+/* ---------- help ---------- */
+
+.panel {
+  margin-bottom: 24px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.helpList {
+  margin: 0 0 16px;
+  padding-left: 1.4em;
+  font-size: 24px;
+}
+.helpList li + li {
+  margin-top: 8px;
+}
+
+/* ---------- footer close ---------- */
+
+.footer {
+  max-width: 1240px;
+  margin: 24px auto 0;
+  padding: 32px 24px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  background: var(--surface);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.tagline {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+}
+.taglineEn {
+  margin: -8px 0 0;
+  font-family: var(--font-latin);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--ink-soft);
+}
+
+.disclaimer {
+  margin: 0;
+  font-size: 22px;
+  max-width: 44ch;
+}
+.disclaimerEn {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-latin), var(--font-body);
+  font-size: 18px;
+  color: var(--ink-soft);
+}
+
+.signature {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 12px;
+}
+.signature text {
+  font-family: var(--font-latin);
+  font-weight: 600;
+  font-size: 180px;
+  fill: var(--ink);
+}
+
+/* ---------- no-JS answer page ---------- */
+
+.noJsAnswer {
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.7;
+}
+
+.backLink {
+  display: inline-block;
+  margin-top: 24px;
+  font-family: var(--font-latin);
+  font-weight: 600;
+  font-size: 24px;
+  color: var(--ink);
+}
+
+@media (max-width: 480px) {
+  .topBar {
+    padding: 12px 16px;
+  }
+  .brandWord {
+    display: none; /* the mark alone at 390px keeps room for the two big buttons */
+  }
+  .topBtn {
+    font-size: 22px;
+    padding: 8px 16px;
+  }
+  .main {
+    padding: 4px 16px 24px;
+  }
+  .rowText {
+    font-size: 28px;
+  }
+  .footer {
+    padding: 24px 16px 0;
+  }
+}

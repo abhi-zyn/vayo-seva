@@ -1,0 +1,150 @@
+/* Logo layer motion. Rule: the resting state is the finished logo; keyframes
+   only describe where things come FROM. So with reduced motion (animations
+   swapped for a fade) the logo is still complete. */
+
+.mark {
+  display: block;
+  overflow: visible;
+}
+
+.mark g,
+.mark circle,
+.mark path,
+.mark rect {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.wordmark {
+  font-family: var(--font-latin);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.letter {
+  display: inline-block;
+  animation: letter-rise 520ms var(--ease-out) both;
+}
+
+@keyframes letter-rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* --- A. assemble (splash): figures meet, traces draw, nodes pop, document + tick --- */
+
+.assemble .figure-helper {
+  animation: from-left 500ms var(--ease-out) both;
+}
+.assemble .figure-elder {
+  animation: from-right 500ms var(--ease-out) both;
+}
+.assemble .circuit-traces path {
+  animation: draw 700ms ease-in-out 400ms both;
+}
+.assemble .node {
+  animation: pop 360ms var(--ease-out) both;
+}
+/* Nodes pop roughly as the trace reaches them. */
+.assemble .node:nth-child(1) { animation-delay: 520ms; }
+.assemble .node:nth-child(2) { animation-delay: 560ms; }
+.assemble .node:nth-child(3) { animation-delay: 800ms; }
+.assemble .node:nth-child(4) { animation-delay: 1000ms; }
+.assemble .node:nth-child(5) { animation-delay: 600ms; }
+.assemble .node:nth-child(6) { animation-delay: 820ms; }
+.assemble .node:nth-child(7) { animation-delay: 1060ms; }
+.assemble .document {
+  animation: doc-up 500ms var(--ease-out) 1000ms both;
+}
+.assemble .tick path {
+  animation: draw 380ms ease-out 1180ms both;
+}
+
+@keyframes from-left {
+  from {
+    opacity: 0;
+    transform: translate(-28px, 10px);
+  }
+}
+@keyframes from-right {
+  from {
+    opacity: 0;
+    transform: translate(28px, 10px);
+  }
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+@keyframes doc-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+
+/* --- C. carry (thinking): light travels along the circuit, node by node --- */
+
+.carry .node {
+  animation: node-glow 1800ms ease-in-out infinite;
+}
+/* From the helper's side across to the elder: left-stroke nodes, then the Y, then the branch. */
+.carry .node:nth-child(7) { animation-delay: 0ms; }
+.carry .node:nth-child(6) { animation-delay: 150ms; }
+.carry .node:nth-child(5) { animation-delay: 300ms; }
+.carry .node:nth-child(1) { animation-delay: 450ms; }
+.carry .node:nth-child(3) { animation-delay: 600ms; }
+.carry .node:nth-child(2) { animation-delay: 750ms; }
+.carry .node:nth-child(4) { animation-delay: 900ms; }
+
+.pulse {
+  fill: none;
+  stroke: #ffe1cf;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.12 1.2;
+  stroke-dashoffset: 0.5;
+  animation: travel 1800ms linear infinite;
+}
+
+@keyframes travel {
+  from {
+    stroke-dashoffset: 1.32;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes node-glow {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.85);
+  }
+  20% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}

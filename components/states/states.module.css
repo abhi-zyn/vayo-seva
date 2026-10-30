@@ -1,0 +1,474 @@
+/* Loading and processing states. Only transform, opacity and stroke-dashoffset
+   animate. Resting styles are the finished state; keyframes say where things
+   come from, so reduced motion (fade only) still shows complete content. */
+
+/* ---------- shared ---------- */
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 28px 24px;
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.stateHead {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.stateLine {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 30px;
+  line-height: 1.25;
+}
+
+.altLine {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-latin), var(--font-body);
+  font-weight: 600;
+  font-size: 20px;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+.primaryBtn,
+.secondaryBtn {
+  min-height: 76px;
+  padding: 12px 28px;
+  border-radius: var(--radius);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.1;
+  text-align: left;
+}
+
+.primaryBtn {
+  border: 0;
+  background: var(--teal);
+  color: var(--on-teal);
+}
+.primaryBtn:active:not(:disabled) {
+  background: var(--teal-pressed);
+}
+
+.secondaryBtn {
+  border: 0;
+  background: var(--ground);
+  color: var(--ink);
+}
+.secondaryBtn:active:not(:disabled) {
+  background: var(--surface-2);
+}
+.secondaryBtn:disabled {
+  opacity: 0.5;
+}
+.secondaryBtn[aria-pressed="true"] {
+  box-shadow: inset 0 -4px 0 var(--orange); /* an orange "active" trace, not a resting shadow */
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 12px;
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 18px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+/* ---------- A. splash ---------- */
+
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  width: 100%;
+  padding: 24px;
+  border: 0;
+  background: var(--ground);
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+}
+.splash:active {
+  transform: none;
+}
+
+.splashWord {
+  font-size: clamp(48px, 9vw, 76px);
+}
+
+.splashTagline {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.4;
+  max-width: 22ch;
+}
+.splashTagline > span {
+  animation: rise 500ms var(--ease-out) both;
+}
+
+.splashStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  min-height: 34px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  color: var(--ink-soft);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+/* ---------- B. mic field ---------- */
+
+.mic {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 240px;
+  padding: 28px 24px 64px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--teal);
+  color: var(--on-teal);
+  text-align: center;
+  overflow: hidden;
+}
+.mic:active:not(:disabled) {
+  background: var(--teal-pressed);
+}
+.mic:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.micCompact {
+  min-height: 200px;
+}
+
+.micLabel {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  max-width: 18ch;
+}
+
+.micSub {
+  font-family: var(--font-latin), var(--font-body);
+  font-weight: 600;
+  font-size: 20px;
+  opacity: 0.92;
+}
+
+.micGlyph {
+  transform-origin: center;
+}
+.micListening .micGlyph {
+  animation: breathe 1600ms ease-in-out infinite;
+}
+@keyframes breathe {
+  50% {
+    transform: scale(1.02);
+  }
+}
+
+.micWave {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 14px;
+  width: calc(100% - 48px);
+  height: 44px;
+  overflow: visible;
+}
+.micWave path {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.micWave circle {
+  fill: var(--orange);
+}
+
+/* ---------- C. thinking ---------- */
+
+.thinking {
+  align-items: flex-start;
+}
+
+.crossfade {
+  display: block;
+  animation: fade-in 500ms ease-out both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.slowNote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.slowNote p {
+  margin: 0;
+  font-size: 24px;
+}
+
+/* ---------- D. speaking ---------- */
+
+.answerHead {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ink-soft);
+}
+
+.answerText {
+  position: relative;
+  margin: 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.75; /* room under each line for the trace */
+}
+
+.wordNow {
+  color: var(--ink);
+}
+
+.underline {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--orange);
+  transform-origin: 0 50%;
+  transition:
+    transform 200ms var(--ease-out),
+    opacity 200ms linear;
+  pointer-events: none;
+}
+
+.underlineNode {
+  position: absolute;
+  left: -6px;
+  top: -4.5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--orange);
+  transition:
+    transform 200ms var(--ease-out),
+    opacity 200ms linear;
+  pointer-events: none;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* ---------- E. success ---------- */
+
+.success {
+  align-items: flex-start;
+}
+
+.successArt {
+  position: relative;
+  width: 168px;
+  height: 168px;
+}
+
+.successDoc {
+  animation: grow 520ms var(--ease-out) both;
+}
+.successDoc path[pathLength] {
+  animation: draw 420ms ease-out 380ms both;
+}
+@keyframes grow {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+@keyframes draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+}
+
+.burst {
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--orange);
+  animation: settle 700ms var(--ease-out) 700ms both;
+}
+.b1 {
+  left: 150px;
+  top: 30px;
+  --from: translate(-60px, 50px) scale(0.2);
+}
+.b2 {
+  left: 160px;
+  top: 88px;
+  --from: translate(-70px, 0) scale(0.2);
+}
+.b3 {
+  left: 128px;
+  top: -6px;
+  --from: translate(-40px, 70px) scale(0.2);
+}
+@keyframes settle {
+  from {
+    opacity: 0;
+    transform: var(--from);
+  }
+  60% {
+    opacity: 1;
+  }
+}
+
+.refLabel {
+  margin: 0;
+  font-size: 22px;
+  color: var(--ink-soft);
+}
+
+.refNo {
+  margin: 0;
+  font-family: var(--font-latin);
+  font-weight: 600;
+  font-size: clamp(40px, 8vw, 56px);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  line-height: 1.05;
+  word-break: break-all;
+}
+
+/* ---------- F. error ---------- */
+
+.broken {
+  width: 100%;
+  max-width: 420px;
+  height: 40px;
+  overflow: visible;
+}
+.brokenA {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  animation: draw 600ms ease-out both;
+}
+.brokenB {
+  fill: none;
+  stroke: var(--orange);
+  stroke-width: 3;
+  stroke-linecap: round;
+  opacity: 0.3;
+  animation: fade-in 400ms ease-out 600ms both;
+}
+.brokenNode {
+  fill: var(--orange);
+}
+.brokenDim {
+  fill: var(--orange);
+  opacity: 0.3;
+  animation: fade-in 400ms ease-out 600ms both;
+}
+
+.errorRow {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.errorRow svg {
+  flex: none;
+}
+
+.callBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 76px;
+  padding: 10px 24px 10px 16px;
+  border-radius: var(--radius);
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1.15;
+  text-decoration: none;
+}
+.callBtn:active {
+  background: var(--surface-2);
+}
+.callNumber {
+  display: block;
+  font-family: var(--font-latin);
+  font-weight: 600;
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+@media (max-width: 480px) {
+  .stage {
+    padding: 22px 18px;
+  }
+  .stateHead {
+    font-size: 30px;
+  }
+  .primaryBtn,
+  .secondaryBtn {
+    width: 100%;
+  }
+}
