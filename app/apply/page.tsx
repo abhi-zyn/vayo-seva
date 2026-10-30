@@ -1,0 +1,567 @@
+"use client";
+
+// Application interview ("Sahayi"): pick a certificate, answer one question at
+// a time, confirm each answer, review, send to the Akshaya operator.
+// Screens: pick → (scst) → info → ask ⇄ confirm → review → sent.
+//
+// Voice-first: everything is read aloud in Malayalam, and once the mic is
+// allowed every screen listens by itself, so the whole flow works hands-free.
+// Every step can also be done by tapping or typing.
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { SpeedPicker } from "@/components/SpeedPicker";
+import { askText, detectYesNo, nextField, saysDontKnow, saysNone, stepsFor } from "@/lib/apply/engine";
+import { extractAnswer } from "@/lib/apply/extract-client";
+import { digitsMl, processingMl, readBack, totalYearly, validityMl } from "@/lib/apply/readback";
+import { buildApplication } from "@/lib/apply/summary";
+import type { Answer, Answers, FieldDef, Option } from "@/lib/apply/types";
+import { normalizeKeyed } from "@/lib/apply/validate";
+import { ML, recognitionErrorMl } from "@/lib/messages";
+import { generalInfo, services, type Service } from "@/lib/services";
+import { useRecognition } from "@/lib/use-recognition";
+import { useSpeaker } from "@/lib/use-speaker";
+import { AnswerInput } from "./AnswerInput";
+import { MicButton } from "./MicButton";
+import { ReviewList } from "./ReviewList";
+import styles from "./apply.module.css";
+
+type Screen = "pick" | "scst" | "info" | "ask" | "confirm" | "review" | "sent" | "unavailable";
+
+const SAY = {
+  pick: "ഏത് സർട്ടിഫിക്കറ്റാണ് വേണ്ടത്? പേര് പറയൂ, അല്ലെങ്കിൽ താഴെ നിന്ന് തിരഞ്ഞെടുക്കൂ.",
+  scst: "നിങ്ങൾ പട്ടികജാതി അല്ലെങ്കിൽ പട്ടികവർഗ വിഭാഗത്തിൽ പെട്ടതാണോ?",
+  toCommunity: "പട്ടികജാതി, പട്ടികവർഗ വിഭാഗക്കാർക്ക് ജാതി സർട്ടിഫിക്കറ്റ് അല്ല, കമ്മ്യൂണിറ്റി സർട്ടിഫിക്കറ്റ് ആണ് വേണ്ടത്.",
+  startQuestions: "ഇനി കുറച്ച് വിവരങ്ങൾ ചോദിക്കാം.",
+  unclear: "മനസ്സിലായില്ല. ഒന്നുകൂടി പറയാമോ?",
+  again: "ശരി, ഒന്നുകൂടി പറയൂ.",
+  noSpeech: "ഒന്നും കേട്ടില്ല. ഒന്നുകൂടി പറയൂ.",
+  typeHelp: "ദയവായി ടൈപ്പ് ചെയ്യൂ, അല്ലെങ്കിൽ കുടുംബത്തിലെ ആരുടെയെങ്കിലും സഹായം തേടൂ.",
+  yesNoHelp: "ശരിയാണെങ്കിൽ ശരി എന്നും, അല്ലെങ്കിൽ അല്ല എന്നും പറയൂ.",
+  review:
+    "എല്ലാ വിവരങ്ങളും കിട്ടി. സ്ക്രീനിലെ വിവരങ്ങൾ കുടുംബത്തിലെ ആരെയെങ്കിലും കൊണ്ട് ഒന്നു നോക്കിക്കൂ. അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കട്ടെ?",
+  notSent: "ശരി, അയച്ചില്ല. തിരുത്താൻ അവസാന ഉത്തരം തിരുത്തുക അമർത്തൂ. അയയ്ക്കാൻ അയയ്ക്കൂ എന്ന് പറയൂ.",
+  unavailable: "ഈ സേവനത്തിന് ഈ ആപ്പ് വഴി അപേക്ഷിക്കാൻ കഴിയില്ല. ദയവായി അക്ഷയ കേന്ദ്രം സന്ദർശിക്കൂ.",
+};
+
+const NOT_AVAILABLE = "not_available";
+const SERVICE_OPTIONS: Option[] = [
+  ...services.map((s) => ({ value: s.id, ml: `${s.name_ml} (${s.name_en})` })),
+  { value: NOT_AVAILABLE, ml: generalInfo.not_available.map((n) => n.name_en).join(", ") },
+];
+const OTP_TIME_ML: Record<string, string> = { Morning: "രാവിലെ", Afternoon: "ഉച്ചയ്ക്ക്", Evening: "വൈകുന്നേരം" };
+
+/** Everything on the info screen, as one spoken Malayalam paragraph. */
+const infoText = (s: Service) =>
+  [
+    `${s.name_ml}.`,
+    `ഇതിനായി ${s.documents_ml.join(", ")} എന്നിവ കയ്യിൽ കരുതുക.`,
+    `സർട്ടിഫിക്കറ്റിന്റെ കാലാവധി ${validityMl(s.validity)}. കിട്ടാൻ എടുക്കുന്ന സമയം ${processingMl(s.processing_time)}.`,
+    s.accepted_documents.length === 0 ? ML.listNotPublished : "",
+    ML.feeLine,
+    "ആധാറിലെ പേരും ജനന തീയതിയും കൃത്യമായി പറയണം.",
+    ML.confirmClosing,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+export default function ApplyPage() {
+  const [screen, setScreenState] = useState<Screen>("pick");
+  const [serviceId, setServiceId] = useState<string | null>(null);
+  const [answers, setAnswers] = useState<Answers>({});
+  const [history, setHistory] = useState<string[]>([]);
+  // A proposed answer is tied to the id of the question it answers, so it can
+  // never be saved under a different question (e.g. if a slow reply arrives late).
+  const [pending, setPending] = useState<{ id: string; answer: Answer } | null>(null);
+  const [fails, setFails] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [hint, setHint] = useState("");
+  const [askNonce, setAskNonce] = useState(0); // bump to re-ask the same question
+  const [sentRef, setSentRef] = useState<string | null>(null);
+  const askPrefix = useRef(""); // said before the question on the next re-ask
+  const noSpeechRetried = useRef(false); // one automatic re-listen after silence
+  const speaker = useSpeaker();
+  const rec = useRecognition({ onFinal: onVoice, onError: onRecognitionError });
+
+  // Refs for async callbacks, where the render-time values may be stale.
+  const screenRef = useRef<Screen>("pick");
+  const setScreen = (s: Screen) => {
+    screenRef.current = s;
+    setScreenState(s);
+  };
+  const busyRef = useRef(false);
+
+  const service = services.find((s) => s.id === serviceId) ?? null;
+  const steps = useMemo(() => (serviceId ? stepsFor(serviceId) : []), [serviceId]);
+  const field = serviceId && (screen === "ask" || screen === "confirm") ? nextField(steps, answers) : null;
+  const fieldIdRef = useRef<string | null>(null);
+  fieldIdRef.current = field?.id ?? null;
+  const application = useMemo(
+    () => (service && (screen === "review" || screen === "sent") ? buildApplication(service, answers) : null),
+    [service, answers, screen],
+  );
+
+  /**
+   * Speak, then (if the mic is allowed) listen for the reply automatically.
+   * `then(spoken)` runs after speaking; `spoken` is false if no sound came out.
+   */
+  function talk(text: string, listenAfter = false, then?: (spoken: boolean) => void) {
+    rec.abort();
+    speaker.say(text, {
+      onDone: (spoken) => {
+        then?.(spoken);
+        // Listen even if the voice failed: the question is on screen.
+        if (listenAfter && rec.canAutoListen()) rec.start();
+      },
+    });
+  }
+
+  // Start: a certificate chosen by voice on the home screen arrives as ?service=.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("service");
+    if (id && services.some((s) => s.id === id)) chooseService(id);
+    else talk(SAY.pick, true);
+  }, []);
+
+  // Ask each new question as it comes up; finish when there are none left.
+  useEffect(() => {
+    if (screen !== "ask") return;
+    if (!field) {
+      setScreen("review");
+      talk(SAY.review, true);
+      return;
+    }
+    const prefix = askPrefix.current;
+    askPrefix.current = "";
+    talk(`${prefix ? prefix + " " : ""}${askText(field, answers)}`, true);
+  }, [screen, field?.id, askNonce]);
+
+  // --- service choice ----------------------------------------------------------
+
+  function chooseService(id: string) {
+    setHint("");
+    if (id === NOT_AVAILABLE) {
+      setScreen("unavailable");
+      talk(`${SAY.unavailable} ${ML.confirmClosing}`);
+      return;
+    }
+    setServiceId(id);
+    if (id === "caste-certificate") {
+      setScreen("scst"); // rule 10: SC/ST need the Community Certificate
+      talk(SAY.scst, true);
+      return;
+    }
+    showInfo(services.find((s) => s.id === id)!);
+  }
+
+  /** Read out what's needed, then move on to the questions by itself. */
+  function showInfo(s: Service, before = "") {
+    setScreen("info");
+    talk(`${before ? before + " " : ""}${infoText(s)} ${SAY.startQuestions}`, false, (spoken) => {
+      // Only auto-advance if they actually heard it; otherwise wait for "തുടങ്ങാം".
+      if (spoken && screenRef.current === "info") setScreen("ask");
+    });
+  }
+
+  function answerScst(isScSt: boolean) {
+    const id = isScSt ? "community-certificate" : "caste-certificate";
+    setServiceId(id);
+    showInfo(services.find((x) => x.id === id)!, isScSt ? SAY.toCommunity : "");
+  }
+
+  // --- answering ----------------------------------------------------------------
+
+  function onRecognitionError(code: string) {
+    // Silence: ask once more and listen again, then leave it to the mic button.
+    if (code === "no-speech" && !noSpeechRetried.current) {
+      noSpeechRetried.current = true;
+      return talk(SAY.noSpeech, true);
+    }
+    const msg = recognitionErrorMl(code);
+    setHint(msg);
+    talk(msg);
+  }
+
+  function onVoice(text: string) {
+    noSpeechRetried.current = false;
+    setHint("");
+    const s = screenRef.current;
+    if (s === "pick") {
+      return interpret(text, { kind: "choice", label: "Certificate", ask: SAY.pick, options: SERVICE_OPTIONS, id: "service" });
+    }
+    if (s === "scst" || s === "confirm" || s === "review") {
+      const yn = detectYesNo(text) ?? (/അയയ്ക്ക|അയക്ക|send/i.test(text) ? "yes" : null);
+      if (!yn) return talk(SAY.yesNoHelp, true);
+      if (s === "scst") return answerScst(yn === "yes");
+      if (s === "review") return yn === "yes" ? send() : talk(SAY.notSent, true);
+      return yn === "yes" ? accept() : reject();
+    }
+    if (s === "ask" && field) {
+      if (saysDontKnow(text) || (field.optional && saysNone(text))) return dontKnow(text);
+      if (field.kind === "yesno") {
+        const yn = detectYesNo(text);
+        if (yn) return propose(field, { ...blank(field), english_value: yn, malayalam_raw: text });
+      }
+      interpret(text, field);
+    }
+  }
+
+  /** Spoken (or typed) words -> model -> a proposed answer to confirm. */
+  async function interpret(text: string, f: FieldDef) {
+    if (busyRef.current) return; // one answer at a time
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const ans = await extractAnswer({ kind: f.kind, label: f.label, question: askText(f, answers), options: f.options, transcript: text });
+      if (f.id === "service") {
+        if (ans.english_value) return chooseService(ans.english_value);
+        setHint(SAY.unclear);
+        return talk(SAY.unclear, true);
+      }
+      // The user moved on (back, skip) while we waited: this reply is for an old question.
+      if (fieldIdRef.current !== f.id) return;
+      if (ans.english_value === null) {
+        if (/does not know/i.test(ans.note_for_operator)) return dontKnow(text, f);
+        return failed(SAY.unclear);
+      }
+      // Spoken numbers, dates and codes get the same checks as typed ones.
+      if (f.kind === "digits" || f.kind === "date" || f.kind === "typed") {
+        const value = normalizeKeyed(f.kind, ans.english_value);
+        const err = f.validate?.(value) ?? null;
+        if (err) return failed(err);
+        return propose(f, { ...ans, english_value: value });
+      }
+      propose(f, ans);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ML.apiError;
+      setHint(msg);
+      talk(msg, true);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  function propose(f: FieldDef, ans: Answer) {
+    setHint(""); // a valid answer replaces any earlier "wrong format" message
+    setPending({ id: f.id, answer: ans });
+    setScreen("confirm");
+    talk(readBack(f, ans), true);
+  }
+
+  function commit(id: string, ans: Answer) {
+    setAnswers((a) => ({ ...a, [id]: ans }));
+    setHistory((h) => [...h, id]);
+    setPending(null);
+    setFails(0);
+    setHint("");
+    setScreen("ask");
+  }
+
+  const accept = () => pending && commit(pending.id, pending.answer);
+
+  function reject() {
+    const n = fails + 1;
+    setFails(n);
+    setPending(null);
+    askPrefix.current = n >= 2 ? SAY.typeHelp : SAY.again; // rule 8: after two misses, type or get help
+    if (n >= 2) setHint(SAY.typeHelp);
+    setScreen("ask");
+    setAskNonce((x) => x + 1);
+  }
+
+  function failed(msg: string) {
+    const n = fails + 1;
+    setFails(n);
+    const say = n >= 2 ? `${msg} ${SAY.typeHelp}` : msg;
+    setHint(say);
+    talk(say, true); // keep listening: they can still answer by voice
+  }
+
+  /** Rule 9: record null and move on. */
+  function dontKnow(raw = "", f: FieldDef | null = field) {
+    if (!f || busyRef.current) return;
+    commit(f.id, { ...blank(f), malayalam_raw: raw, confidence: 1, note_for_operator: f.optional ? "Skipped" : "Applicant does not know" });
+  }
+
+  function onKeyed(value: string) {
+    if (!field || field.kind === "choice" || busyRef.current) return;
+    const err = field.validate?.(value) ?? null;
+    if (err) {
+      setHint(err);
+      return talk(err, true);
+    }
+    const kind = field.kind === "digits" || field.kind === "date" ? field.kind : "typed";
+    propose(field, { ...blank(field), english_value: normalizeKeyed(kind, value), confidence: 1 });
+  }
+
+  function goBack() {
+    rec.abort();
+    speaker.stop();
+    setHint("");
+    setPending(null);
+    setFails(0);
+    const last = history[history.length - 1];
+    if (!last) return service ? showInfo(service) : undefined;
+    setHistory((h) => h.slice(0, -1));
+    setAnswers((a) => {
+      const { [last]: _removed, ...rest } = a;
+      return rest;
+    });
+    setScreen("ask");
+    setAskNonce((x) => x + 1);
+  }
+
+  async function send() {
+    if (!application || busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    setHint("");
+    try {
+      const res = await fetch("/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.ref) throw new Error(body?.error || ML.apiError);
+      setSentRef(body.ref);
+      setScreen("sent");
+      const when = OTP_TIME_ML[answers.otp_call_time?.english_value ?? ""] ?? "";
+      const refDigits = String(body.ref).split("-").pop() ?? "";
+      talk(
+        `അപേക്ഷ അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയച്ചു. റഫറൻസ് നമ്പറിന്റെ അവസാന അക്കങ്ങൾ ${digitsMl(refDigits)}. ` +
+          `ഒ.ടി.പി.ക്കായി ഓപ്പറേറ്റർ ${when} വിളിക്കും. ഫോൺ അടുത്ത് വെക്കൂ. ${ML.feeLine} ${ML.confirmClosing}`,
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : ML.apiError;
+      setHint(msg);
+      talk(msg);
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  }
+
+  function restart() {
+    rec.abort();
+    speaker.stop();
+    setScreen("pick");
+    setServiceId(null);
+    setAnswers({});
+    setHistory([]);
+    setPending(null);
+    setFails(0);
+    setHint("");
+    setSentRef(null);
+    talk(SAY.pick, true);
+  }
+
+  // --- view -------------------------------------------------------------------
+
+  const mic = rec.supported ? (
+    <MicButton
+      listening={rec.listening}
+      busy={busy}
+      speaking={speaker.state !== "idle"}
+      onStart={() => {
+        speaker.stop();
+        setHint("");
+        noSpeechRetried.current = false;
+        rec.start();
+      }}
+      onStop={rec.stop}
+    />
+  ) : null;
+
+  return (
+    <main className={styles.main}>
+      <header className={styles.header}>
+        <Link href="/" className={styles.homeLink}>
+          ← ചോദ്യം ചോദിക്കാൻ
+        </Link>
+        <h1 className={styles.title}>സർട്ടിഫിക്കറ്റ് അപേക്ഷ</h1>
+      </header>
+
+      {rec.listening && <p className={styles.listening}>👂 കേൾക്കുന്നു… {rec.interim && `“${rec.interim}”`}</p>}
+      {hint && <p className={styles.hint}>{hint}</p>}
+      {speaker.lastFailed && <p className={styles.small}>ശബ്ദം കേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല. സ്ക്രീനിൽ വായിക്കൂ.</p>}
+
+      {screen === "pick" && (
+        <>
+          <p className={styles.question}>{SAY.pick}</p>
+          {mic}
+          <div className={styles.serviceGrid}>
+            {services.map((s) => (
+              <button key={s.id} className={styles.serviceButton} onClick={() => chooseService(s.id)} disabled={busy}>
+                <span className={styles.serviceMl}>{s.name_ml}</span>
+                <span className={styles.serviceEn}>{s.name_en}</span>
+              </button>
+            ))}
+          </div>
+          <button className={styles.linkButton} onClick={() => chooseService(NOT_AVAILABLE)}>
+            മറ്റു സേവനങ്ങൾ (അനന്തരാവകാശം, ജനന രജിസ്ട്രേഷൻ…)
+          </button>
+        </>
+      )}
+
+      {screen === "scst" && (
+        <>
+          <p className={styles.question}>{SAY.scst}</p>
+          <div className={styles.options}>
+            <button className={styles.option} onClick={() => answerScst(true)}>
+              അതെ (SC / ST)
+            </button>
+            <button className={styles.option} onClick={() => answerScst(false)}>
+              അല്ല
+            </button>
+          </div>
+          {mic}
+        </>
+      )}
+
+      {screen === "unavailable" && (
+        <section className={styles.card}>
+          <p className={styles.question}>{SAY.unavailable}</p>
+          <ul className={styles.subList}>
+            {generalInfo.not_available.map((n) => (
+              <li key={n.name_en}>
+                <strong>{n.name_ml}</strong> ({n.name_en}): {n.reason}
+              </li>
+            ))}
+          </ul>
+          <button className={styles.secondary} onClick={restart}>
+            മറ്റൊരു സർട്ടിഫിക്കറ്റ്
+          </button>
+        </section>
+      )}
+
+      {screen === "info" && service && (
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>
+            {service.name_ml}
+            {!service.verified && <span className={styles.badge}>ഇതുവരെ ഉറപ്പാക്കിയിട്ടില്ല · not yet verified</span>}
+          </h2>
+          <p className={styles.small}>{service.name_en}</p>
+          <p className={styles.cardLabel}>കയ്യിൽ കരുതേണ്ടവ:</p>
+          <ul className={styles.subList}>
+            {service.documents_ml.map((d) => (
+              <li key={d}>{d}</li>
+            ))}
+          </ul>
+          <p>
+            കാലാവധി: {validityMl(service.validity)}
+            <br />
+            കിട്ടാൻ എടുക്കുന്ന സമയം: {processingMl(service.processing_time)}
+          </p>
+          {service.accepted_documents.length === 0 && <p>{ML.listNotPublished}</p>}
+          <p>{ML.feeLine}</p>
+          <button className={styles.primary} onClick={() => setScreen("ask")}>
+            തുടങ്ങാം
+          </button>
+          <button className={styles.linkButton} onClick={restart}>
+            മറ്റൊരു സർട്ടിഫിക്കറ്റ്
+          </button>
+        </section>
+      )}
+
+      {screen === "ask" && field && (
+        <section className={styles.card}>
+          <p className={styles.progress}>ചോദ്യം {history.length + 1}</p>
+          <p className={styles.question}>{askText(field, answers)}</p>
+          <AnswerInput
+            field={field}
+            typingMode={fails >= 2}
+            busy={busy}
+            mic={mic}
+            onPick={(o) => !busyRef.current && commit(field.id, { ...blank(field), english_value: o.value, malayalam_raw: o.ml, confidence: 1 })}
+            onKeyed={onKeyed}
+            onTypedVoiceAnswer={(t) => interpret(t, field)}
+          />
+          <div className={styles.navRow}>
+            <button className={styles.linkButton} onClick={goBack}>
+              ← മുമ്പത്തെ ചോദ്യം
+            </button>
+            <button className={styles.linkButton} onClick={() => dontKnow()} disabled={busy}>
+              {field.optional ? "ഒഴിവാക്കുക" : "അറിയില്ല"}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {screen === "confirm" && field && pending?.id === field.id && (
+        <section className={styles.card}>
+          <p className={styles.cardLabel}>{field.label}</p>
+          <p className={styles.bigValue}>{displayValue(field, pending.answer)}</p>
+          {pending.answer.malayalam_raw && field.kind !== "choice" && field.kind !== "yesno" && (
+            <p className={styles.small}>കേട്ടത്: {pending.answer.malayalam_raw}</p>
+          )}
+          <p className={styles.question}>ശരിയാണോ?</p>
+          <div className={styles.options}>
+            <button className={`${styles.option} ${styles.yes}`} onClick={accept}>
+              ✔ ശരി
+            </button>
+            <button className={`${styles.option} ${styles.no}`} onClick={reject}>
+              ✘ അല്ല
+            </button>
+          </div>
+          {mic}
+        </section>
+      )}
+
+      {screen === "review" && application && (
+        <>
+          <p className={styles.question}>അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കട്ടെ?</p>
+          {mic}
+          <ReviewList app={application} />
+          <button className={styles.primary} onClick={send} disabled={busy}>
+            {busy ? ML.oneMoment : "📤 അക്ഷയ കേന്ദ്രത്തിലേക്ക് അയയ്ക്കുക"}
+          </button>
+          <button className={styles.linkButton} onClick={goBack}>
+            ← അവസാന ഉത്തരം തിരുത്തുക
+          </button>
+        </>
+      )}
+
+      {screen === "sent" && (
+        <section className={`${styles.card} ${styles.doneCard}`}>
+          <h2 className={styles.cardTitle}>അപേക്ഷ അയച്ചു ✔</h2>
+          <p>റഫറൻസ് നമ്പർ / Reference number:</p>
+          <p className={styles.bigValue}>{sentRef}</p>
+          <p>ഒ.ടി.പി.ക്കായി അക്ഷയ ഓപ്പറേറ്റർ വിളിക്കും. ഫോൺ അടുത്ത് വെക്കൂ.</p>
+          <p>{ML.feeLine}</p>
+          <p className={styles.small}>
+            Demo mode: the application was not emailed yet. It is logged on the server with ID numbers masked.
+          </p>
+          <button className={styles.secondary} onClick={restart}>
+            പുതിയ അപേക്ഷ
+          </button>
+        </section>
+      )}
+
+      <SpeedPicker value={speaker.speed} onChange={speaker.setSpeed} />
+
+      <footer className={styles.footer}>
+        <p>{ML.confirmClosing}</p>
+        <p>Information may change. Please confirm with your Akshaya center.</p>
+      </footer>
+    </main>
+  );
+}
+
+const blank = (f: FieldDef): Answer => ({
+  field: f.label,
+  malayalam_raw: "",
+  english_value: null,
+  confidence: 0,
+  note_for_operator: "",
+});
+
+/** What a family member checks on screen: the exact value that will be typed on e-District. */
+function displayValue(f: FieldDef, a: Answer): string {
+  if (f.kind === "choice" || f.kind === "yesno") return f.options?.find((o) => o.value === a.english_value)?.ml ?? "";
+  if (f.kind === "income") {
+    return `${a.english_value} · Total ₹${totalYearly(a.items ?? []).toLocaleString("en-IN")}/year`;
+  }
+  return a.english_value ?? "";
+}

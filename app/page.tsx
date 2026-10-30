@@ -1,17 +1,19 @@
 "use client";
 
-// Main screen: tap the mic, ask in Malayalam, hear the answer.
+// Q&A screen: tap the mic, ask in Malayalam, hear the answer.
 // Flow: idle → listening → thinking → speaking → idle.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { SpeedPicker } from "@/components/SpeedPicker";
 import { askQuestion, type AskResponse } from "@/lib/ask-client";
-import { playClip, stopClip } from "@/lib/audio-clips";
+import { playClip } from "@/lib/audio-clips";
 import { ML, recognitionErrorMl } from "@/lib/messages";
-import { getRecognitionCtor, speak, type SpeechRecognitionLike } from "@/lib/speech";
-import { BROWSER_RATE, DEFAULT_SPEED, loadSpeed, saveSpeed, SPEEDS, type Speed } from "@/lib/speed";
-import { speakText, stopSpeaking } from "@/lib/tts-client";
-import { useMalayalamVoice } from "@/lib/use-ml-voice";
+import { speak } from "@/lib/speech";
+import { BROWSER_RATE, type Speed } from "@/lib/speed";
+import { useRecognition } from "@/lib/use-recognition";
+import { useSpeaker } from "@/lib/use-speaker";
 import styles from "./page.module.css";
 
 type Phase = "idle" | "listening" | "thinking" | "speaking";
@@ -23,153 +25,95 @@ const MIC_LABEL: Record<Phase, { icon: string; text: string }> = {
   speaking: { icon: "🔊", text: "പറയുന്നു… നിർത്താൻ അമർത്തൂ" },
 };
 
+const NO_SOUND = "ശബ്ദം കേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല. ഉത്തരം സ്ക്രീനിൽ വായിക്കൂ.";
+
 export default function Home() {
-  const [phase, setPhase] = useState<Phase>("idle");
+  const [asking, setAsking] = useState(false);
   const [heard, setHeard] = useState("");
   const [answer, setAnswer] = useState<AskResponse | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [typing, setTyping] = useState(false);
   const [typed, setTyped] = useState("");
-  const [canListen, setCanListen] = useState(true);
-  const [speed, setSpeed] = useState<Speed>(DEFAULT_SPEED);
-  const recRef = useRef<SpeechRecognitionLike | null>(null);
-  const sayId = useRef(0); // lets a stale say() timeout know it was superseded
-  const { voice: mlVoice, checked: voiceChecked } = useMalayalamVoice();
+  const router = useRouter();
+  const speaker = useSpeaker();
+  const rec = useRecognition({
+    onFinal: (text) => ask(text),
+    onError: (code) => {
+      setError(recognitionErrorMl(code));
+      if (code === "not-allowed" || code === "service-not-allowed") setTyping(true);
+    },
+  });
+
+  const phase: Phase = rec.listening
+    ? "listening"
+    : asking || speaker.state === "loading"
+      ? "thinking"
+      : speaker.state === "speaking"
+        ? "speaking"
+        : "idle";
 
   useEffect(() => {
-    const ok = getRecognitionCtor() !== null;
-    setCanListen(ok);
-    if (!ok) setTyping(true); // no speech recognition: typing is the only way in
-    setSpeed(loadSpeed());
     playClip("greeting"); // optional; silently skipped if missing or autoplay is blocked
   }, []);
-
-  /** Speak text with the best available engine; falls back to text-only. */
-  function say(text: string, atSpeed: Speed = speed) {
-    // Gemini audio can take seconds to arrive: show "one moment" until sound
-    // actually starts, so the screen never says "speaking" during silence.
-    setPhase("thinking");
-    const id = ++sayId.current;
-    // If no sound starts within 25 s (dropped utterance, stalled download),
-    // give up rather than leave the mic button disabled forever.
-    const timer = window.setTimeout(() => {
-      if (sayId.current !== id) return;
-      stopSpeaking();
-      setNotice("ശബ്ദം കേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല. ഉത്തരം സ്ക്രീനിൽ വായിക്കൂ.");
-      setPhase("idle");
-    }, 25_000);
-    speakText(text, mlVoice, {
-      speed: atSpeed,
-      onStart: () => {
-        window.clearTimeout(timer);
-        setPhase("speaking");
-      },
-      onEnd: () => {
-        window.clearTimeout(timer);
-        setPhase("idle");
-      },
-      onFail: (reason) => {
-        window.clearTimeout(timer);
-        console.warn("speech failed:", reason);
-        setNotice("ശബ്ദം കേൾപ്പിക്കാൻ കഴിഞ്ഞില്ല. ഉത്തരം സ്ക്രീനിൽ വായിക്കൂ.");
-        setPhase("idle");
-      },
-    });
-  }
+  useEffect(() => {
+    if (!rec.supported) setTyping(true); // no speech recognition: typing is the only way in
+  }, [rec.supported]);
 
   async function ask(question: string) {
     stopEverything();
     setHeard(question);
     setAnswer(null);
     setError("");
-    setNotice("");
-    setPhase("thinking");
+    setAsking(true);
 
     // "One moment": recorded clip if present, else the device voice. We don't
     // spend Gemini TTS quota on this; the text on the button is enough.
     playClip("one-moment").then((played) => {
-      if (!played && mlVoice) speak(ML.oneMoment, mlVoice, { rate: BROWSER_RATE[speed] });
+      if (!played && speaker.mlVoice) speak(ML.oneMoment, speaker.mlVoice, { rate: BROWSER_RATE[speaker.speed] });
     });
 
     try {
       const res = await askQuestion(question);
+      if (res.apply_service_id) {
+        // "I need an income certificate": go straight to that application.
+        // The next screen reads out what's needed and continues by voice.
+        speaker.stop();
+        router.push(`/apply?service=${encodeURIComponent(res.apply_service_id)}`);
+        return;
+      }
       setAnswer(res);
-      say(res.answer);
+      speaker.say(res.answer);
     } catch (err) {
       const msg = err instanceof Error ? err.message : ML.apiError;
       setError(msg);
-      say(msg); // errors are spoken too: the user may not be reading the screen
-    }
-  }
-
-  function startListening() {
-    const Ctor = getRecognitionCtor();
-    if (!Ctor) return;
-    stopEverything();
-    setError("");
-    setNotice("");
-    setHeard("");
-
-    const rec = new Ctor();
-    rec.lang = "ml-IN";
-    rec.continuous = false;
-    rec.interimResults = true; // show words as they're recognised
-    let finalText = "";
-    let failed = false;
-
-    rec.onresult = (e) => {
-      let fin = "";
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) fin += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
-      }
-      finalText = fin;
-      setHeard(fin + interim);
-    };
-    rec.onerror = (e) => {
-      failed = true;
-      if (e.error === "aborted") return;
-      setError(recognitionErrorMl(e.error));
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") setTyping(true);
-    };
-    rec.onend = () => {
-      recRef.current = null;
-      if (!failed && finalText.trim()) ask(finalText.trim());
-      else setPhase("idle");
-    };
-
-    recRef.current = rec;
-    setPhase("listening");
-    try {
-      rec.start();
-    } catch {
-      setPhase("idle");
+      speaker.say(msg); // errors are spoken too: the user may not be reading the screen
+    } finally {
+      setAsking(false);
     }
   }
 
   function stopEverything() {
-    sayId.current++;
-    recRef.current?.abort();
-    recRef.current = null;
-    stopSpeaking();
-    stopClip();
+    rec.abort();
+    speaker.stop();
+  }
+
+  function startListening() {
+    stopEverything();
+    setError("");
+    setHeard("");
+    rec.start();
   }
 
   function onMicClick() {
-    if (phase === "listening") recRef.current?.stop(); // onend will send what was heard
-    else if (phase === "speaking") {
-      stopEverything();
-      setPhase("idle");
-    } else if (phase === "idle") startListening();
+    if (phase === "listening") rec.stop(); // onFinal will send what was heard
+    else if (phase === "speaking") stopEverything();
+    else if (phase === "idle") startListening();
   }
 
   function changeSpeed(s: Speed) {
-    setSpeed(s);
-    saveSpeed(s);
+    speaker.setSpeed(s);
     // Re-read the answer at the new speed so the change is heard at once.
-    if (answer && phase !== "listening" && phase !== "thinking") say(answer.answer, s);
+    if (answer && phase !== "listening" && phase !== "thinking") speaker.say(answer.answer, { speed: s });
   }
 
   function onSubmitTyped(e: React.FormEvent) {
@@ -185,7 +129,7 @@ export default function Home() {
       <h1 className={styles.title}>അക്ഷയ സഹായി</h1>
       <p className={styles.greeting}>{ML.greeting}</p>
 
-      {canListen ? (
+      {rec.supported ? (
         <button
           className={`${styles.mic} ${styles[phase]}`}
           onClick={onMicClick}
@@ -201,17 +145,21 @@ export default function Home() {
         <p className={styles.notice}>ഈ ബ്രൗസറിൽ സംസാരം തിരിച്ചറിയാൻ കഴിയില്ല. ദയവായി താഴെ ടൈപ്പ് ചെയ്യൂ.</p>
       )}
 
-      {voiceChecked && !mlVoice && (
+      <Link href="/apply" className={styles.applyLink}>
+        📝 സർട്ടിഫിക്കറ്റിന് അപേക്ഷിക്കാം
+      </Link>
+
+      {speaker.voiceChecked && !speaker.mlVoice && (
         <p className={styles.small}>ഈ ഉപകരണത്തിൽ മലയാളം ശബ്ദം ഇല്ല. ഓൺലൈൻ ശബ്ദം ഉപയോഗിക്കും.</p>
       )}
 
       {error && <p className={styles.error}>{error}</p>}
 
-      {heard && (
+      {(heard || rec.interim) && (
         <section className={styles.card}>
           <div className={styles.cardLabel}>ഞാൻ കേട്ടത്:</div>
-          <p className={styles.heard}>{heard}</p>
-          {canListen && phase === "idle" && (
+          <p className={styles.heard}>{rec.interim || heard}</p>
+          {rec.supported && phase === "idle" && (
             <button className={styles.secondary} onClick={startListening}>
               🔁 വീണ്ടും പറയുക
             </button>
@@ -232,29 +180,20 @@ export default function Home() {
           <p className={styles.answer}>{answer.answer}</p>
           <button
             className={styles.secondary}
-            onClick={() => say(answer.answer)}
+            onClick={() => speaker.say(answer.answer)}
             disabled={phase === "listening" || phase === "thinking"}
           >
             🔊 വീണ്ടും കേൾക്കുക
           </button>
-          <div className={styles.speedRow} role="group" aria-label="വായനയുടെ വേഗത">
-            <span className={styles.cardLabel}>വേഗത:</span>
-            {SPEEDS.map((s) => (
-              <button
-                key={s.id}
-                className={`${styles.speedButton} ${speed === s.id ? styles.speedActive : ""}`}
-                aria-pressed={speed === s.id}
-                onClick={() => changeSpeed(s.id)}
-                disabled={phase === "listening" || phase === "thinking"}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
+          <SpeedPicker
+            value={speaker.speed}
+            onChange={changeSpeed}
+            disabled={phase === "listening" || phase === "thinking"}
+          />
         </section>
       )}
 
-      {notice && <p className={styles.notice}>{notice}</p>}
+      {speaker.lastFailed && <p className={styles.notice}>{NO_SOUND}</p>}
 
       <section className={styles.typeArea}>
         {!typing ? (

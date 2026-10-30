@@ -12,7 +12,13 @@ export const runtime = "nodejs";
 
 const MAX_CHARS = 500;
 
-type AskResult = { answer: string; services_used: string[]; any_unverified: boolean };
+type AskResult = {
+  answer: string;
+  services_used: string[];
+  any_unverified: boolean;
+  /** Set when the user asked FOR a certificate: the UI opens /apply with it selected. */
+  apply_service_id: string | null;
+};
 const cache = createCache<AskResult>(200);
 
 const fail = (error: string, status: number) => Response.json({ error }, { status });
@@ -45,16 +51,24 @@ export async function POST(req: Request) {
       },
     });
 
-    const parsed = JSON.parse(res.text ?? "{}") as { answer?: unknown; services_used?: unknown };
+    const parsed = JSON.parse(res.text ?? "{}") as { answer?: unknown; services_used?: unknown; apply_service_id?: unknown };
     if (typeof parsed.answer !== "string" || !parsed.answer.trim()) throw new Error("model returned no answer");
 
     // Trust only ids that exist, so the unverified flag can't be dodged by a typo.
     const ids = Array.isArray(parsed.services_used) ? parsed.services_used.filter((x) => typeof x === "string") : [];
     const used = services.filter((s) => ids.includes(s.id));
     const result: AskResult = {
-      answer: `${cleanForSpeech(parsed.answer)} ${ML.confirmClosing}`,
+      // Fixed sentences are added in code so they're there whichever model replied.
+      answer: [
+        cleanForSpeech(parsed.answer),
+        used.some((s) => s.accepted_documents.length === 0) ? ML.listNotPublished : "",
+        ML.confirmClosing,
+      ]
+        .filter(Boolean)
+        .join(" "),
       services_used: used.map((s) => s.id),
       any_unverified: anyUnverified(used),
+      apply_service_id: services.some((s) => s.id === parsed.apply_service_id) ? (parsed.apply_service_id as string) : null,
     };
     cache.set(key, result);
     return Response.json(result);
