@@ -1,24 +1,24 @@
-/* VayoSeva design tokens. Flat colour only, taken from the logo.
-   Contrast: ink on ground/surface is 11.8–14:1 (AAA). Text on teal is white on
-   #1F5E60 (7.5:1). In dark mode the raised teal #3A8C8E is used for glyphs and
-   outlines only: white text on it would be 3.9:1, so text-bearing teal
-   surfaces stay #1F5E60 in both themes. */
+/* VayoSeva design tokens. Flat colour only, taken from the brand palette:
+   navy, rust, orange, peach and cream. Contrast: ink on ground/surface is
+   11–13:1 (AAA). Cream text on navy is 12:1. In dark mode the primary fill
+   switches to rust #A54A3D with cream text (5.2:1); peach is used for glyphs
+   and outlines only. */
 
 :root {
-  --ground: #ffffff;
-  --surface: #e1ecea;
-  --surface-2: #d3e3e0; /* pressed/hover step on surface */
-  --field: #ffffff; /* input fields only */
-  --field-ink: #16262d;
-  --ink: #16262d;
-  --ink-soft: #2b4049; /* secondary text, still 9.7:1 on ground */
-  --teal: #1f5e60; /* text-bearing fills: primary mic, main actions */
-  --teal-pressed: #174a4c;
-  --teal-glyph: #1f5e60; /* icons and outlines */
-  --on-teal: #ffffff;
-  --orange: #f26a1f; /* graphics, focus, progress, active: never text on light */
-  --error: #a3261b; /* icon + border only; error words are set in ink */
-  --paper: #ffffff; /* document fill inside the logo */
+  --ground: #fcf4e6; /* warm cream page */
+  --surface: #f7e6cb; /* peach-tinted card */
+  --surface-2: #efd4ae; /* pressed/hover step on surface */
+  --field: #fffdf7; /* input fields only */
+  --field-ink: #1d2c49;
+  --ink: #1d2c49; /* navy text, 12:1 on cream */
+  --ink-soft: #4a5670; /* secondary text, still 7:1 on ground */
+  --teal: #1d2c49; /* text-bearing fills: primary mic, main actions */
+  --teal-pressed: #142038;
+  --teal-glyph: #1d2c49; /* icons and outlines */
+  --on-teal: #fdf3e0;
+  --orange: #f26722; /* graphics, focus, progress, active: never text on light */
+  --error: #a54a3d; /* rust: icon + border only; error words are set in ink */
+  --paper: #fffdf7; /* document fill inside the logo */
   --radius: 28px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 
@@ -32,7 +32,7 @@
   --muted: var(--ink-soft);
   --border: var(--surface-2);
   --accent: var(--teal);
-  --ok: #1b6b2e;
+  --ok: #2f6b3a;
   --bad: var(--error);
   --panel: var(--surface);
 
@@ -43,19 +43,21 @@
    <html data-theme="dark"> is set explicitly (it no longer follows the phone's setting). */
 :root[data-theme="dark"] {
   & {
-    --ground: #16262d;
-    --surface: #1f333b;
-    --surface-2: #29434d;
-    --field: #eef4f3;
-    --field-ink: #16262d;
-    --ink: #eef4f3;
-    --ink-soft: #c9d8d6;
-    --teal: #1f5e60;
-    --teal-pressed: #174a4c;
-    --teal-glyph: #3a8c8e;
-    --paper: #1f333b;
-    --error: #ff8a7a; /* graphics on dark need the lighter red to be visible */
-    --ok: #7fd18f;
+    --ground: #121d30;
+    --surface: #1d2c49;
+    --surface-2: #2a3b5a;
+    --field: #fcf4e6;
+    --field-ink: #1d2c49;
+    --ink: #fcf4e6;
+    --ink-soft: #d8c9b0;
+    --teal: #a54a3d;
+    --teal-pressed: #8b3b31;
+    --teal-glyph: #f9b168;
+    --on-teal: #fff8ec;
+    --orange: #f9b168; /* peach reads on navy */
+    --paper: #1d2c49;
+    --error: #ff9a88; /* graphics on dark need the lighter red to be visible */
+    --ok: #8fd19a;
     color-scheme: dark;
   }
 }

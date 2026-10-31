@@ -120,7 +120,7 @@
 
 .pulse {
   fill: none;
-  stroke: #ffe1cf;
+  stroke: var(--orange);
   stroke-width: 4;
   stroke-linecap: round;
   stroke-dasharray: 0.12 1.2;

@@ -6,7 +6,7 @@
 import type { Application } from "@/lib/apply/summary";
 import { makeRef } from "@/lib/delivery";
 import { ML } from "@/lib/messages";
-import { createOrder, paymentsEnabled, razorpayKeyId } from "@/lib/razorpay";
+import { assertRazorpayConfig, createOrder, paymentsEnabled, razorpayKeyId } from "@/lib/razorpay";
 import { services } from "@/lib/services";
 import { authEnabled } from "@/lib/supabase/config";
 import { currentUser, supabaseAdmin } from "@/lib/supabase/server";
@@ -34,6 +34,9 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Check the keys before saving, so a setup mistake doesn't leave a
+    // "pending_payment" row behind on every retry.
+    if (paymentsEnabled) assertRazorpayConfig();
     const db = supabaseAdmin();
     const ref = makeRef();
     const fee = paymentsEnabled ? service.service_fee_inr : 0;

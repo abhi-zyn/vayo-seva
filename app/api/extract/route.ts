@@ -42,7 +42,9 @@ export async function POST(req: Request) {
   const numeral = numeralFastPath(kind as FieldKind, transcript);
   if (numeral) return Response.json({ field: label, malayalam_raw: transcript.trim(), english_value: numeral, confidence: 1, note_for_operator: "" });
 
-  const key = `${kind}|${options.map((o) => o.value).join(",")}|${normalizeQuestion(transcript)}`;
+  // The field label is part of the key: the same spoken word means different
+  // things for different questions (e.g. "മകൻ" for relation vs occupation).
+  const key = `${kind}|${label}|${options.map((o) => o.value).join(",")}|${normalizeQuestion(transcript)}`;
   const hit = cache.get(key);
   if (hit) return Response.json({ ...hit, field: label });
 

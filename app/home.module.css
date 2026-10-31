@@ -27,6 +27,7 @@
 
 .topActions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -45,12 +46,33 @@
   background: var(--surface-2);
 }
 
+@media (max-width: 560px) {
+  .topBar {
+    padding: 12px 16px;
+    gap: 10px;
+  }
+  .brandWord {
+    font-size: 24px;
+  }
+  .topBtn {
+    min-height: 56px;
+    padding: 6px 14px;
+    font-size: 18px;
+  }
+}
+
 /* ---------- layout ---------- */
 
 .main {
   max-width: 1240px;
   margin: 0 auto;
   padding: 8px 24px 32px;
+}
+
+@media (max-width: 560px) {
+  .main {
+    padding: 8px 16px 32px;
+  }
 }
 
 .layout {

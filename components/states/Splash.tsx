@@ -4,7 +4,7 @@
 // document rises, tick draws, wordmark rises letter by letter, tagline phrase
 // by phrase). About 2.2s; a tap or key anywhere skips it.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon, LogoMark, Wordmark } from "@/components/brand/Logo";
 import type { STRINGS } from "@/lib/ui-strings";
 import s from "./states.module.css";
@@ -13,14 +13,19 @@ type T = (typeof STRINGS)["ml"];
 
 export function Splash({ t, onDone }: { t: T; onDone: () => void }) {
   const [ready, setReady] = useState(false);
+  // Keep the latest callback without restarting the timers: the parent re-renders
+  // while the splash is showing (voice check, hydration), and a new inline
+  // onDone would otherwise reset the 2.9s countdown on every render.
+  const doneRef = useRef(onDone);
+  doneRef.current = onDone;
   useEffect(() => {
     const a = window.setTimeout(() => setReady(true), 2200);
-    const b = window.setTimeout(onDone, 2900);
+    const b = window.setTimeout(() => doneRef.current(), 2900);
     return () => {
       window.clearTimeout(a);
       window.clearTimeout(b);
     };
-  }, [onDone]);
+  }, []);
 
   return (
     <button type="button" className={s.splash} onClick={onDone} aria-label={`VayoSeva. ${t.skip}`}>

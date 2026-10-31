@@ -24,7 +24,7 @@ import { generalInfo, services, type Service } from "@/lib/services";
 import { useRecognition } from "@/lib/use-recognition";
 import { useSpeaker } from "@/lib/use-speaker";
 import { parseDocCommand } from "@/lib/docs/commands";
-import { PaymentCancelled, payWithRazorpay, paymentsOnClient, type PaymentInfo } from "@/lib/pay-client";
+import { PaymentCancelled, payWithRazorpay, paymentsOnClient, type PaymentInfo, type PaymentProof } from "@/lib/pay-client";
 import { signInWithGoogle, supabaseBrowser } from "@/lib/supabase/client";
 import { authEnabled } from "@/lib/supabase/config";
 import { kb } from "@/lib/docs/compress";
@@ -138,9 +138,12 @@ function ApplyFlow() {
   const [hint, setHint] = useState("");
   const [askNonce, setAskNonce] = useState(0); // bump to re-ask the same question
   const [sentRef, setSentRef] = useState<string | null>(null);
+  const [sentChannel, setSentChannel] = useState<string | null>(null);
   const [docResults, setDocResults] = useState<DocResult[] | null>(null); // null = not scanned yet
   const docRef = useRef<DocCaptureHandle>(null);
-  const saved = useRef<{ application_id: string; payment: PaymentInfo | null } | null>(null); // saved, awaiting payment/send
+  // Saved application + payment, kept across a failed submit so a retry neither
+  // re-saves nor re-charges. `proof` is the signature from a completed checkout.
+  const saved = useRef<{ application_id: string; payment: PaymentInfo | null; proof?: PaymentProof } | null>(null);
   const askPrefix = useRef(""); // said before the question on the next re-ask
   const noSpeechRetried = useRef(false); // one automatic re-listen after silence
   const speaker = useSpeaker();
@@ -242,8 +245,8 @@ function ApplyFlow() {
   /** Read out what's needed, then move on to the questions by itself. */
   function showInfo(s: Service, before = "") {
     setScreen("info");
-    talk(`${before ? before + " " : ""}${infoText(s)} ${SAY.startQuestions}`, false, (spoken) => {
-      // Only auto-advance if they actually heard it; otherwise wait for "തുടങ്ങാം".
+    talk(`${before ? before + " " : ""}${infoText(s)} ${SAY.startQuestions}`, true, (spoken) => {
+      // Auto-advance after reading; if the voice failed, "തുടങ്ങാം" also works.
       if (spoken && screenRef.current === "info") setScreen("ask");
     });
   }
@@ -276,6 +279,11 @@ function ApplyFlow() {
     if ((s === "ask" || s === "confirm") && /എല്ലാം ഒഴിവാക്ക|skip all/i.test(text)) return skipAllQuestions();
     if (s === "pick") {
       return interpret(text, { kind: "choice", label: "Certificate", ask: SAY.pick, options: SERVICE_OPTIONS, id: "service" });
+    }
+    if (s === "info") {
+      // Ready to begin: "തുടങ്ങാം" (or "ശരി" / "start"). Anything else: read the summary again.
+      if (/തുടങ്ങ|start|ശരി|ok|okay/i.test(text)) return setScreen("ask");
+      if (service) return talk(infoText(service), true);
     }
     if (s === "scst" || s === "confirm" || s === "review") {
       const yn = detectYesNo(text) ?? (/അയയ്ക്ക|അയക്ക|send/i.test(text) ? "yes" : null);
@@ -439,13 +447,23 @@ function ApplyFlow() {
       let payload: Record<string, unknown> = { application };
       if (authEnabled) {
         // Reuse the saved application + order if they retry, so nobody is charged twice.
-        saved.current ??= await postJson("/api/applications", { application });
-        const { application_id, payment } = saved.current as { application_id: string; payment: PaymentInfo | null };
+        saved.current ??= { ...(await postJson("/api/applications", { application })), proof: undefined };
+        const { application_id, payment, proof } = saved.current as {
+          application_id: string;
+          payment: PaymentInfo | null;
+          proof?: PaymentProof;
+        };
         payload = { application_id };
-        if (payment) {
+        if (proof) {
+          // Checkout already succeeded on an earlier attempt: resubmit the same proof.
+          payload = { ...payload, ...proof };
+        } else if (payment) {
           talk(SAY.payOpening);
           try {
-            payload = { ...payload, ...(await payWithRazorpay(payment, service?.name_en ?? "Certificate")) };
+            const paid = await payWithRazorpay(payment, service?.name_en ?? "Certificate");
+            payload = { ...payload, ...paid };
+            // Never open Checkout for this application again, even if delivery fails.
+            saved.current = { application_id, payment: null, proof: paid };
           } catch (err) {
             if (err instanceof PaymentCancelled) {
               setHint(SAY.payCancelled);
@@ -461,6 +479,7 @@ function ApplyFlow() {
       saved.current = null;
       void clearDocs(); // sent: drop the temporary copies from the phone
       setSentRef(body.ref);
+      setSentChannel(typeof body.channel === "string" ? body.channel : null);
       setScreen("sent");
       const when = OTP_TIME_ML[answers.otp_call_time?.english_value ?? ""] ?? "";
       const refDigits = String(body.ref).split("-").pop() ?? "";
@@ -490,6 +509,7 @@ function ApplyFlow() {
     setFails(0);
     setHint("");
     setSentRef(null);
+    setSentChannel(null);
     setDocResults(null);
     void clearDocs();
     talk(SAY.pick, true);
@@ -597,6 +617,7 @@ function ApplyFlow() {
           <button className={styles.primary} onClick={() => setScreen("ask")}>
             തുടങ്ങാം
           </button>
+          {mic}
           <button className={styles.linkButton} onClick={restart}>
             മറ്റൊരു സർട്ടിഫിക്കറ്റ്
           </button>
@@ -715,7 +736,9 @@ function ApplyFlow() {
           <p>ഒ.ടി.പി.ക്കായി അക്ഷയ ഓപ്പറേറ്റർ വിളിക്കും. ഫോൺ അടുത്ത് വെക്കൂ.</p>
           <p>{ML.feeLine}</p>
           <p className={styles.small}>
-            Demo mode: the application was not emailed yet. It is logged on the server with ID numbers masked.
+            {sentChannel === "resend" || sentChannel === "already-sent"
+              ? "The application was emailed to the Akshaya operator with the scanned documents."
+              : "Demo mode: the application was not emailed yet. It is logged on the server with ID numbers masked."}
           </p>
           {authEnabled && (
             <Link href="/my-applications" className={styles.secondary} style={{ display: "flex", alignItems: "center", textDecoration: "none", padding: "0 20px" }}>

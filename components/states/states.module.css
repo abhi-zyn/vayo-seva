@@ -193,6 +193,16 @@
   opacity: 0.92;
 }
 
+@media (max-width: 560px) {
+  .mic {
+    padding: 24px 16px 56px;
+  }
+  .micLabel {
+    font-size: 30px;
+    max-width: 100%;
+  }
+}
+
 .micGlyph {
   transform-origin: center;
 }

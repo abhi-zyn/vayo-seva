@@ -130,7 +130,7 @@ function show(v: unknown): string {
 
 function rows(data: Record<string, unknown>): string {
   return Object.entries(data)
-    .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#2b4049">${esc(label(k))}</td><td style="padding:6px 12px;font-weight:600">${esc(show(v))}</td></tr>`)
+    .map(([k, v]) => `<tr><td style="padding:6px 12px;color:#4A5670">${esc(label(k))}</td><td style="padding:6px 12px;font-weight:600">${esc(show(v))}</td></tr>`)
     .join("");
 }
 
@@ -139,18 +139,18 @@ function emailHtml(app: Application, ref: string, docs: SubmittedDoc[]): string 
     ? docs.map((d) => `<li>${esc(d.name)}: ${d.pdf_base64 ? `attached, ${d.pages} page(s)` : "<b>not provided</b>"}</li>`).join("")
     : "<li>No documents were scanned.</li>";
   const missing = app.missing_or_unsure.length
-    ? `<h3 style="color:#a3261b">Missing or unsure</h3><ul>${app.missing_or_unsure.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`
+    ? `<h3 style="color:#A54A3D">Missing or unsure</h3><ul>${app.missing_or_unsure.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`
     : "";
-  return `<div style="font-family:Arial,sans-serif;color:#16262d;max-width:680px">
+  return `<div style="font-family:Arial,sans-serif;color:#1D2C49;max-width:680px">
 <h2 style="margin:0 0 4px">New e-District application · ${esc(ref)}</h2>
 <p style="margin:0 0 16px">Service on e-District: <b>${esc(app.service)}</b>. Collected by voice through VayoSeva (അക്ഷയ സഹായി).
 The applicant expects a call for the OTP (best time: <b>${esc(show(app.applicant.otp_call_time))}</b>).</p>
-<h3>Applicant</h3><table style="border-collapse:collapse;background:#eef4f3">${rows(app.applicant)}</table>
-<h3>Service details</h3><table style="border-collapse:collapse;background:#eef4f3">${rows(app.service_details)}</table>
+<h3>Applicant</h3><table style="border-collapse:collapse;background:#F7E6CB">${rows(app.applicant)}</table>
+<h3>Service details</h3><table style="border-collapse:collapse;background:#F7E6CB">${rows(app.service_details)}</table>
 <h3>Documents to upload on e-District</h3><ul>${app.documents_to_upload.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
 <h3>Scanned documents</h3><ul>${docRows}</ul>
 ${missing}
-<p style="color:#2b4049;font-size:13px">Names are transliterated from speech; check spellings against the Aadhaar card. Fees were not quoted to the applicant.</p>
+<p style="color:#4A5670;font-size:13px">Names are transliterated from speech; check spellings against the Aadhaar card. Fees were not quoted to the applicant.</p>
 </div>`;
 }
 

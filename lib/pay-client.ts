@@ -55,7 +55,7 @@ export async function payWithRazorpay(p: PaymentInfo, description: string): Prom
       name: "VayoSeva",
       description,
       prefill: { name: p.name, email: p.email, contact: p.contact },
-      theme: { color: "#1F5E60" },
+      theme: { color: "#1D2C49" },
       handler: (r: PaymentProof) => {
         settled = true;
         ok(r);

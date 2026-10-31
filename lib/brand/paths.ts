@@ -156,8 +156,8 @@ export const ICONS: Record<string, Shape[]> = {
 
 // --- static SVG rendering (used by scripts/build-brand.mjs) ------------------------
 
-export const LIGHT: Record<Tone, string> = { teal: "#1F5E60", orange: "#F26A1F", paper: "#EEF4F3", ink: "#16262D" };
-export const DARK: Record<Tone, string> = { teal: "#3A8C8E", orange: "#F26A1F", paper: "#1F333B", ink: "#EEF4F3" };
+export const LIGHT: Record<Tone, string> = { teal: "#1D2C49", orange: "#F26722", paper: "#FCF4E6", ink: "#1D2C49" };
+export const DARK: Record<Tone, string> = { teal: "#F9B168", orange: "#F26722", paper: "#1D2C49", ink: "#FCF4E6" };
 
 function shapeSvg(s: Shape, c: Record<Tone, string>): string {
   const paint =

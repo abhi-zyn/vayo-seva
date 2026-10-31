@@ -9,7 +9,7 @@
 .label {
   font-size: 1rem;
   font-weight: 700;
-  color: #333;
+  color: var(--ink-soft);
 }
 
 .button {
@@ -17,16 +17,16 @@
   min-width: 96px;
   min-height: 56px;
   border-radius: 12px;
-  border: 2px solid #0b5cad;
-  background: #fff;
-  color: #0b5cad;
+  border: 2px solid var(--teal-glyph);
+  background: var(--field);
+  color: var(--teal-glyph);
   font-size: 1rem;
   font-weight: 700;
 }
 
 .active {
-  background: #0b5cad;
-  color: #fff;
+  background: var(--teal);
+  color: var(--on-teal);
 }
 
 .button:disabled {

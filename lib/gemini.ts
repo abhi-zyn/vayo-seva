@@ -47,9 +47,10 @@ export function getGenAI(): GoogleGenAI {
   return client;
 }
 
-/** True for errors worth retrying on another model: overload, rate limit, timeout. */
+/** True for errors worth retrying on another model: overload, rate limit, timeout, or a retired model name. */
 function isTransient(err: unknown): boolean {
-  if (err instanceof ApiError) return [429, 500, 503, 504].includes(err.status);
+  // 404 = the model id no longer exists (model names change often). Try the next one.
+  if (err instanceof ApiError) return [404, 429, 500, 503, 504].includes(err.status);
   // The SDK's client-side timeout surfaces as an AbortError.
   return err instanceof Error && (err.name === "AbortError" || /abort|timeout/i.test(err.message));
 }

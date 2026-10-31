@@ -39,7 +39,7 @@
   border: none;
   border-radius: 12px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-teal);
 }
 
 .bigButton:disabled {
@@ -50,11 +50,13 @@
 
 .secondButton {
   margin-top: 8px;
-  background: #5b3ea8;
+  background: var(--orange);
+  color: var(--ink);
 }
 
 .listening {
-  background: var(--bad);
+  background: var(--error);
+  color: var(--on-teal);
 }
 
 .output {
@@ -104,7 +106,7 @@
 
 .mlVoice {
   border: 2px solid var(--ok);
-  background: #e8f5ea;
+  background: var(--surface);
 }
 
 .log {

@@ -98,13 +98,13 @@ export default function MyApplications() {
             {r.ref}
           </p>
           <p>
-            <strong>{STATUS[r.status].ml}</strong> · {STATUS[r.status].en}
+            <strong>{(STATUS[r.status] ?? STATUS.failed).ml}</strong> · {(STATUS[r.status] ?? STATUS.failed).en}
           </p>
           <p className={styles.small}>
             {new Date(r.created_at).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}
             {r.fee_inr > 0 && ` · ₹${r.fee_inr}`}
           </p>
-          {r.documents.length > 0 && (
+          {r.documents?.length > 0 && (
             <ul className={styles.docList}>
               {r.documents.map((d) => (
                 <li key={d.name}>
