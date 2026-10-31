@@ -17,9 +17,6 @@ export const razorpayKeyId = KEY_ID;
  */
 export function assertRazorpayConfig(): void {
   if (!KEY_ID || !KEY_SECRET) throw new Error("Razorpay is not configured: set RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET");
-  if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-    throw new Error("NEXT_PUBLIC_RAZORPAY_KEY_ID is not set (use the same value as RAZORPAY_KEY_ID)");
-  }
   const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (KEY_SECRET.startsWith("sb_secret_") || (serviceRole && KEY_SECRET === serviceRole)) {
     throw new Error("RAZORPAY_KEY_SECRET is a Supabase secret key, not the Razorpay Key Secret");
